@@ -18,6 +18,7 @@ namespace System.Data.SqlClient.Tests
         {
             using (TestTdsServer server = TestTdsServer.StartTestServer())
             {
+                Console.WriteLine("!!!!!!!!!!!!!!!!!!!!" +server.ConnectionString);
                 using (SqlConnection connection = new SqlConnection(server.ConnectionString))
                 {
                     connection.Open();
@@ -68,6 +69,76 @@ namespace System.Data.SqlClient.Tests
             Assert.Equal(15, con.ConnectionTimeout);
             Assert.Equal(8000, con.PacketSize);
             Assert.False(new SqlConnectionStringBuilder(con.ConnectionString).IntegratedSecurity);
+        }
+
+        [Fact]
+        public void NetworkLibraryTest()
+        {          
+            using (TestTdsServer server = TestTdsServer.StartTestServer())
+            {
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(server.ConnectionString);
+                builder.NetworkLibrary = "dbmssocn";
+                using (SqlConnection connection = new SqlConnection(builder.ConnectionString))
+                {
+                    connection.Open();          
+                }
+            }               
+        }
+
+        [Fact]
+        public void PoolBlockingPeriodTest()
+        {
+            using (TestTdsServer server = TestTdsServer.StartTestServer())
+            {
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(server.ConnectionString);
+                builder.PoolBlockingPeriod = PoolBlockingPeriod.Auto;
+                using (SqlConnection connection = new SqlConnection(builder.ConnectionString))
+                {
+                    connection.Open();
+                }
+            }
+        }
+
+        [Fact]
+        public void ContextConnectionTest()
+        {
+            using (TestTdsServer server = TestTdsServer.StartTestServer())
+            {
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(server.ConnectionString);
+                builder.ContextConnection = true;
+                using (SqlConnection connection = new SqlConnection(builder.ConnectionString))
+                {
+                    connection.Open();
+                }
+            }
+        }
+
+        [Fact]
+        public void ConnectionResetTest()
+        {
+            using (TestTdsServer server = TestTdsServer.StartTestServer())
+            {
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(server.ConnectionString);
+                builder.ConnectionReset = true;
+                using (SqlConnection connection = new SqlConnection(builder.ConnectionString))
+                {
+                    connection.Open();
+                }
+            }
+        }
+
+        [Fact]
+        public void TransparentNetworkIPResolutionTest()
+        {
+            using (TestTdsServer server = TestTdsServer.StartTestServer())
+            {
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(server.ConnectionString);
+                builder.TransparentNetworkIPResolution = true;
+                using (SqlConnection connection = new SqlConnection(builder.ConnectionString))
+                {
+                    connection.Open();
+                }
+            }
         }
 
         [Fact]

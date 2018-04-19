@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
+
 namespace System.Data.SqlClient
 {
     public sealed partial class SqlConnectionStringBuilder : DbConnectionStringBuilder
@@ -30,7 +31,10 @@ namespace System.Data.SqlClient
             Pooling,
             MinPoolSize,
             MaxPoolSize,
+            PoolBlockingPeriod,
 
+            AsynchronousProcessing,
+            ConnectionReset,
             MultipleActiveResultSets,
             Replication,
 
@@ -38,6 +42,7 @@ namespace System.Data.SqlClient
             Encrypt,
             TrustServerCertificate,
             LoadBalanceTimeout,
+            NetworkLibrary,
             PacketSize,
             TypeSystemVersion,
 
@@ -47,11 +52,15 @@ namespace System.Data.SqlClient
 
             UserInstance,
 
+            ContextConnection,
+
             TransactionBinding,
 
             ApplicationIntent,
 
             MultiSubnetFailover,
+
+            TransparentNetworkIPResolution,
 
             ConnectRetryCount,
 
@@ -62,7 +71,7 @@ namespace System.Data.SqlClient
         }
 
         internal const int KeywordsCount = (int)Keywords.KeywordsCount;
-        internal const int DeprecatedKeywordsCount = 4;
+        internal const int DeprecatedKeywordsCount = 0;//4;
 
         private static readonly string[] s_validKeywords = CreateValidKeywords();
         private static readonly Dictionary<string, Keywords> s_keywords = CreateKeywordsDictionary();
@@ -75,6 +84,7 @@ namespace System.Data.SqlClient
         private string _failoverPartner = DbConnectionStringDefaults.FailoverPartner;
         private string _initialCatalog = DbConnectionStringDefaults.InitialCatalog;
         //      private string _namedConnection   = DbConnectionStringDefaults.NamedConnection;
+        private string _networkLibrary = DbConnectionStringDefaults.NetworkLibrary;
         private string _password = DbConnectionStringDefaults.Password;
         private string _transactionBinding = DbConnectionStringDefaults.TransactionBinding;
         private string _typeSystemVersion = DbConnectionStringDefaults.TypeSystemVersion;
@@ -89,23 +99,32 @@ namespace System.Data.SqlClient
         private int _connectRetryCount = DbConnectionStringDefaults.ConnectRetryCount;
         private int _connectRetryInterval = DbConnectionStringDefaults.ConnectRetryInterval;
 
+        private bool _asynchronousProcessing = DbConnectionStringDefaults.AsynchronousProcessing;
+        private bool _connectionReset = DbConnectionStringDefaults.ConnectionReset;
+        private bool _contextConnection = DbConnectionStringDefaults.ContextConnection;
         private bool _encrypt = DbConnectionStringDefaults.Encrypt;
         private bool _trustServerCertificate = DbConnectionStringDefaults.TrustServerCertificate;
         private bool _enlist = DbConnectionStringDefaults.Enlist;
         private bool _integratedSecurity = DbConnectionStringDefaults.IntegratedSecurity;
         private bool _multipleActiveResultSets = DbConnectionStringDefaults.MultipleActiveResultSets;
         private bool _multiSubnetFailover = DbConnectionStringDefaults.MultiSubnetFailover;
+        private bool _transparentNetworkIPResolution = DbConnectionStringDefaults.TransparentNetworkIPResolution;
         private bool _persistSecurityInfo = DbConnectionStringDefaults.PersistSecurityInfo;
         private bool _pooling = DbConnectionStringDefaults.Pooling;
         private bool _replication = DbConnectionStringDefaults.Replication;
         private bool _userInstance = DbConnectionStringDefaults.UserInstance;
+        private PoolBlockingPeriod _poolBlockingPeriod = DbConnectionStringDefaults.PoolBlockingPeriod;
 
         private static string[] CreateValidKeywords()
         {
             string[] validKeywords = new string[KeywordsCount];
             validKeywords[(int)Keywords.ApplicationIntent] = DbConnectionStringKeywords.ApplicationIntent;
             validKeywords[(int)Keywords.ApplicationName] = DbConnectionStringKeywords.ApplicationName;
+            validKeywords[(int)Keywords.AsynchronousProcessing] = DbConnectionStringKeywords.AsynchronousProcessing;
             validKeywords[(int)Keywords.AttachDBFilename] = DbConnectionStringKeywords.AttachDBFilename;
+            validKeywords[(int)Keywords.PoolBlockingPeriod] = DbConnectionStringKeywords.PoolBlockingPeriod;
+            validKeywords[(int)Keywords.ConnectionReset] = DbConnectionStringKeywords.ConnectionReset;
+            validKeywords[(int)Keywords.ContextConnection] = DbConnectionStringKeywords.ContextConnection;
             validKeywords[(int)Keywords.ConnectTimeout] = DbConnectionStringKeywords.ConnectTimeout;
             validKeywords[(int)Keywords.CurrentLanguage] = DbConnectionStringKeywords.CurrentLanguage;
             validKeywords[(int)Keywords.DataSource] = DbConnectionStringKeywords.DataSource;
@@ -119,7 +138,9 @@ namespace System.Data.SqlClient
             validKeywords[(int)Keywords.MinPoolSize] = DbConnectionStringKeywords.MinPoolSize;
             validKeywords[(int)Keywords.MultipleActiveResultSets] = DbConnectionStringKeywords.MultipleActiveResultSets;
             validKeywords[(int)Keywords.MultiSubnetFailover] = DbConnectionStringKeywords.MultiSubnetFailover;
+            validKeywords[(int)Keywords.TransparentNetworkIPResolution] = DbConnectionStringKeywords.TransparentNetworkIPResolution;
             //          validKeywords[(int)Keywords.NamedConnection]          = DbConnectionStringKeywords.NamedConnection;
+            validKeywords[(int)Keywords.NetworkLibrary] = DbConnectionStringKeywords.NetworkLibrary;
             validKeywords[(int)Keywords.PacketSize] = DbConnectionStringKeywords.PacketSize;
             validKeywords[(int)Keywords.Password] = DbConnectionStringKeywords.Password;
             validKeywords[(int)Keywords.PersistSecurityInfo] = DbConnectionStringKeywords.PersistSecurityInfo;
@@ -141,8 +162,12 @@ namespace System.Data.SqlClient
             Dictionary<string, Keywords> hash = new Dictionary<string, Keywords>(KeywordsCount + SqlConnectionString.SynonymCount, StringComparer.OrdinalIgnoreCase);
             hash.Add(DbConnectionStringKeywords.ApplicationIntent, Keywords.ApplicationIntent);
             hash.Add(DbConnectionStringKeywords.ApplicationName, Keywords.ApplicationName);
+            hash.Add(DbConnectionStringKeywords.AsynchronousProcessing, Keywords.AsynchronousProcessing);
             hash.Add(DbConnectionStringKeywords.AttachDBFilename, Keywords.AttachDBFilename);
+            hash.Add(DbConnectionStringKeywords.PoolBlockingPeriod, Keywords.PoolBlockingPeriod);
             hash.Add(DbConnectionStringKeywords.ConnectTimeout, Keywords.ConnectTimeout);
+            hash.Add(DbConnectionStringKeywords.ConnectionReset, Keywords.ConnectionReset);
+            hash.Add(DbConnectionStringKeywords.ContextConnection, Keywords.ContextConnection);
             hash.Add(DbConnectionStringKeywords.CurrentLanguage, Keywords.CurrentLanguage);
             hash.Add(DbConnectionStringKeywords.DataSource, Keywords.DataSource);
             hash.Add(DbConnectionStringKeywords.Encrypt, Keywords.Encrypt);
@@ -155,7 +180,9 @@ namespace System.Data.SqlClient
             hash.Add(DbConnectionStringKeywords.MaxPoolSize, Keywords.MaxPoolSize);
             hash.Add(DbConnectionStringKeywords.MinPoolSize, Keywords.MinPoolSize);
             hash.Add(DbConnectionStringKeywords.MultiSubnetFailover, Keywords.MultiSubnetFailover);
+            hash.Add(DbConnectionStringKeywords.TransparentNetworkIPResolution, Keywords.TransparentNetworkIPResolution);
             //          hash.Add(DbConnectionStringKeywords.NamedConnection,          Keywords.NamedConnection);
+            hash.Add(DbConnectionStringKeywords.NetworkLibrary, Keywords.NetworkLibrary);
             hash.Add(DbConnectionStringKeywords.PacketSize, Keywords.PacketSize);
             hash.Add(DbConnectionStringKeywords.Password, Keywords.Password);
             hash.Add(DbConnectionStringKeywords.PersistSecurityInfo, Keywords.PersistSecurityInfo);
@@ -171,6 +198,7 @@ namespace System.Data.SqlClient
             hash.Add(DbConnectionStringKeywords.ConnectRetryInterval, Keywords.ConnectRetryInterval);
 
             hash.Add(DbConnectionStringSynonyms.APP, Keywords.ApplicationName);
+            hash.Add(DbConnectionStringSynonyms.Async, Keywords.AsynchronousProcessing);
             hash.Add(DbConnectionStringSynonyms.EXTENDEDPROPERTIES, Keywords.AttachDBFilename);
             hash.Add(DbConnectionStringSynonyms.INITIALFILENAME, Keywords.AttachDBFilename);
             hash.Add(DbConnectionStringSynonyms.CONNECTIONTIMEOUT, Keywords.ConnectTimeout);
@@ -183,6 +211,8 @@ namespace System.Data.SqlClient
             hash.Add(DbConnectionStringSynonyms.DATABASE, Keywords.InitialCatalog);
             hash.Add(DbConnectionStringSynonyms.TRUSTEDCONNECTION, Keywords.IntegratedSecurity);
             hash.Add(DbConnectionStringSynonyms.ConnectionLifetime, Keywords.LoadBalanceTimeout);
+            hash.Add(DbConnectionStringSynonyms.NET, Keywords.NetworkLibrary);
+            hash.Add(DbConnectionStringSynonyms.NETWORK, Keywords.NetworkLibrary);
             hash.Add(DbConnectionStringSynonyms.Pwd, Keywords.Password);
             hash.Add(DbConnectionStringSynonyms.PERSISTSECURITYINFO, Keywords.PersistSecurityInfo);
             hash.Add(DbConnectionStringSynonyms.UID, Keywords.UserID);
@@ -289,6 +319,16 @@ namespace System.Data.SqlClient
             }
         }
 
+        public bool AsynchronousProcessing
+        {
+            get { return _asynchronousProcessing; }
+            set
+            {
+                SetValue(DbConnectionStringKeywords.AsynchronousProcessing, value);
+                _asynchronousProcessing = value;
+            }
+        }
+
         public string AttachDBFilename
         {
             get { return _attachDBFilename; }
@@ -296,6 +336,41 @@ namespace System.Data.SqlClient
             {
                 SetValue(DbConnectionStringKeywords.AttachDBFilename, value);
                 _attachDBFilename = value;
+            }
+        }
+
+        public PoolBlockingPeriod PoolBlockingPeriod
+        {
+            get { return _poolBlockingPeriod; }
+            set
+            {
+                if (!DbConnectionStringBuilderUtil.IsValidPoolBlockingPeriodValue(value))
+                {
+                    throw ADP.InvalidEnumerationValue(typeof(PoolBlockingPeriod), (int)value);
+                }
+
+                SetPoolBlockingPeriodValue(value);
+                _poolBlockingPeriod = value;
+            }
+        }
+
+        public bool ConnectionReset
+        {
+            get { return _connectionReset; }
+            set
+            {
+                SetValue(DbConnectionStringKeywords.ConnectionReset, value);
+                _connectionReset = value;
+            }
+        }
+
+        public bool ContextConnection
+        {
+            get { return _contextConnection; }
+            set
+            {
+                SetValue(DbConnectionStringKeywords.ContextConnection, value);
+                _contextConnection = value;
             }
         }
 
@@ -486,6 +561,16 @@ namespace System.Data.SqlClient
                 _multiSubnetFailover = value;
             }
         }
+
+        public bool TransparentNetworkIPResolution
+        {
+            get { return _transparentNetworkIPResolution; }
+            set
+            {
+                SetValue(DbConnectionStringKeywords.TransparentNetworkIPResolution, value);
+                _transparentNetworkIPResolution = value;
+            }
+        }
         /*
                 [DisplayName(DbConnectionStringKeywords.NamedConnection)]
                 [ResCategoryAttribute(Res.DataCategory_NamedConnectionString)]
@@ -500,6 +585,49 @@ namespace System.Data.SqlClient
                     }
                 }
         */
+
+        public string NetworkLibrary
+        {
+            get { return _networkLibrary; }
+            set
+            {
+                if (null != value)
+                {
+                    switch (value.Trim().ToLower( System.Globalization.CultureInfo.InvariantCulture))
+                    {
+                        // Check this: Aparantly since SQL Server 2005, the AppleTalk, Multiprotocol,IPXSPX and BanyanVines protocol are no longer supported. 
+                        case SqlConnectionString.NETLIB.AppleTalk:
+                            value = SqlConnectionString.NETLIB.AppleTalk;
+                            break;
+                        case SqlConnectionString.NETLIB.BanyanVines:
+                            value = SqlConnectionString.NETLIB.BanyanVines;
+                            break;
+                        case SqlConnectionString.NETLIB.IPXSPX:
+                            value = SqlConnectionString.NETLIB.IPXSPX;
+                            break;
+                        case SqlConnectionString.NETLIB.Multiprotocol:
+                            value = SqlConnectionString.NETLIB.Multiprotocol;
+                            break;
+                        case SqlConnectionString.NETLIB.NamedPipes:
+                            value = SqlConnectionString.NETLIB.NamedPipes;
+                            break;
+                        case SqlConnectionString.NETLIB.SharedMemory:
+                            value = SqlConnectionString.NETLIB.SharedMemory;
+                            break;
+                        case SqlConnectionString.NETLIB.TCPIP:
+                            value = SqlConnectionString.NETLIB.TCPIP;
+                            break;
+                        case SqlConnectionString.NETLIB.VIA:
+                            value = SqlConnectionString.NETLIB.VIA;
+                            break;
+                        default:
+                            throw ADP.InvalidConnectionOptionValue(DbConnectionStringKeywords.NetworkLibrary);
+                    }
+                }
+                SetValue(DbConnectionStringKeywords.NetworkLibrary, value);
+                _networkLibrary = value;
+            }
+        }
         public int PacketSize
         {
             get { return _packetSize; }
@@ -604,6 +732,13 @@ namespace System.Data.SqlClient
             }
         }
 
+        public override bool IsFixedSize
+        {
+            get
+            {
+                return true;
+            }
+        }
 
         public override ICollection Keys
         {
@@ -670,8 +805,12 @@ namespace System.Data.SqlClient
             {
                 case Keywords.ApplicationIntent: return this.ApplicationIntent;
                 case Keywords.ApplicationName: return ApplicationName;
+                case Keywords.AsynchronousProcessing: return AsynchronousProcessing;
                 case Keywords.AttachDBFilename: return AttachDBFilename;
+                case Keywords.PoolBlockingPeriod: return PoolBlockingPeriod;
                 case Keywords.ConnectTimeout: return ConnectTimeout;
+                case Keywords.ConnectionReset: return ConnectionReset;
+                case Keywords.ContextConnection: return ContextConnection;
                 case Keywords.CurrentLanguage: return CurrentLanguage;
                 case Keywords.DataSource: return DataSource;
                 case Keywords.Encrypt: return Encrypt;
@@ -684,7 +823,9 @@ namespace System.Data.SqlClient
                 case Keywords.MaxPoolSize: return MaxPoolSize;
                 case Keywords.MinPoolSize: return MinPoolSize;
                 case Keywords.MultiSubnetFailover: return MultiSubnetFailover;
+                case Keywords.TransparentNetworkIPResolution: return TransparentNetworkIPResolution;
                 //          case Keywords.NamedConnection:          return NamedConnection;
+                case Keywords.NetworkLibrary: return NetworkLibrary;
                 case Keywords.PacketSize: return PacketSize;
                 case Keywords.Password: return Password;
                 case Keywords.PersistSecurityInfo: return PersistSecurityInfo;
@@ -742,11 +883,23 @@ namespace System.Data.SqlClient
                 case Keywords.ApplicationName:
                     _applicationName = DbConnectionStringDefaults.ApplicationName;
                     break;
+                case Keywords.AsynchronousProcessing:
+                    _asynchronousProcessing = DbConnectionStringDefaults.AsynchronousProcessing;
+                    break;
                 case Keywords.AttachDBFilename:
                     _attachDBFilename = DbConnectionStringDefaults.AttachDBFilename;
                     break;
+                case Keywords.PoolBlockingPeriod:
+                    _poolBlockingPeriod = DbConnectionStringDefaults.PoolBlockingPeriod;
+                    break;
                 case Keywords.ConnectTimeout:
                     _connectTimeout = DbConnectionStringDefaults.ConnectTimeout;
+                    break;
+                case Keywords.ConnectionReset:
+                    _connectionReset = DbConnectionStringDefaults.ConnectionReset;
+                    break;
+                case Keywords.ContextConnection:
+                    _contextConnection = DbConnectionStringDefaults.ContextConnection;
                     break;
                 case Keywords.CurrentLanguage:
                     _currentLanguage = DbConnectionStringDefaults.CurrentLanguage;
@@ -783,6 +936,12 @@ namespace System.Data.SqlClient
                     break;
                 case Keywords.MultiSubnetFailover:
                     _multiSubnetFailover = DbConnectionStringDefaults.MultiSubnetFailover;
+                    break;
+                case Keywords.TransparentNetworkIPResolution:
+                    _transparentNetworkIPResolution = DbConnectionStringDefaults.TransparentNetworkIPResolution;
+                    break;
+                case Keywords.NetworkLibrary:
+                    _networkLibrary = DbConnectionStringDefaults.NetworkLibrary;
                     break;
                 //          case Keywords.NamedConnection:
                 //              _namedConnection = DbConnectionStringDefaults.NamedConnection;
@@ -851,6 +1010,12 @@ namespace System.Data.SqlClient
             base[DbConnectionStringKeywords.ApplicationIntent] = DbConnectionStringBuilderUtil.ApplicationIntentToString(value);
         }
 
+        private void SetPoolBlockingPeriodValue(PoolBlockingPeriod value)
+        {
+            Debug.Assert(DbConnectionStringBuilderUtil.IsValidPoolBlockingPeriodValue(value), "Invalid value for PoolBlockingPeriod");
+            base[DbConnectionStringKeywords.PoolBlockingPeriod] = DbConnectionStringBuilderUtil.PoolBlockingPeriodToString(value);
+        }
+
         public override bool ShouldSerialize(string keyword)
         {
             ADP.CheckArgumentNull(keyword, nameof(keyword));
@@ -872,19 +1037,136 @@ namespace System.Data.SqlClient
 
         private static readonly string[] s_notSupportedKeywords = new string[] {
             DbConnectionStringKeywords.AsynchronousProcessing,
-            DbConnectionStringKeywords.ConnectionReset,
-            DbConnectionStringKeywords.ContextConnection,
+        //    DbConnectionStringKeywords.ConnectionReset,
+         //   DbConnectionStringKeywords.ContextConnection,
             DbConnectionStringKeywords.TransactionBinding,
 
             DbConnectionStringSynonyms.Async
         };
 
         private static readonly string[] s_notSupportedNetworkLibraryKeywords = new string[] {
-            DbConnectionStringKeywords.NetworkLibrary,
+         //   DbConnectionStringKeywords.NetworkLibrary,
 
-            DbConnectionStringSynonyms.NET,
-            DbConnectionStringSynonyms.NETWORK
+         //   DbConnectionStringSynonyms.NET,
+         //   DbConnectionStringSynonyms.NETWORK
         };
+
+        private sealed class NetworkLibraryConverter : TypeConverter
+        {
+            //            private const string AppleTalk     = "Apple Talk (DBMSADSN)";  Invalid protocals
+            //            private const string BanyanVines   = "Banyan VINES (DBMSVINN)";
+            //            private const string IPXSPX        = "NWLink IPX/SPX (DBMSSPXN)";
+            //            private const string Multiprotocol = "Multiprotocol (DBMSRPCN)";
+            private const string NamedPipes = "Named Pipes (DBNMPNTW)";   // valid protocols
+            private const string SharedMemory = "Shared Memory (DBMSLPCN)";
+            private const string TCPIP = "TCP/IP (DBMSSOCN)";
+            private const string VIA = "VIA (DBMSGNET)";
+
+            // these are correctly non-static, property grid will cache an instance
+            private StandardValuesCollection _standardValues;
+
+            // converter classes should have public ctor
+            public NetworkLibraryConverter()
+            {
+            }
+
+            public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+            {
+                // Only know how to convert from a string
+                return ((typeof(string) == sourceType) || base.CanConvertFrom(context, sourceType));
+            }
+
+            public override object ConvertFrom(ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value)
+            {
+                string svalue = (value as string);
+                if (null != svalue)
+                {
+                    svalue = svalue.Trim();
+                    if (StringComparer.OrdinalIgnoreCase.Equals(svalue, NamedPipes))
+                    {
+                        return SqlConnectionString.NETLIB.NamedPipes;
+                    }
+                    else if (StringComparer.OrdinalIgnoreCase.Equals(svalue, SharedMemory))
+                    {
+                        return SqlConnectionString.NETLIB.SharedMemory;
+                    }
+                    else if (StringComparer.OrdinalIgnoreCase.Equals(svalue, TCPIP))
+                    {
+                        return SqlConnectionString.NETLIB.TCPIP;
+                    }
+                    else if (StringComparer.OrdinalIgnoreCase.Equals(svalue, VIA))
+                    {
+                        return SqlConnectionString.NETLIB.VIA;
+                    }
+                    else
+                    {
+                        return svalue;
+                    }
+                }
+                return base.ConvertFrom(context, culture, value);
+            }
+
+            public override bool CanConvertTo(ITypeDescriptorContext context, Type destinationType)
+            {
+                return ((typeof(string) == destinationType) || base.CanConvertTo(context, destinationType));
+            }
+
+            public override object ConvertTo(ITypeDescriptorContext context, System.Globalization.CultureInfo culture, object value, Type destinationType)
+            {
+                string svalue = (value as string);
+                if ((null != svalue) && (destinationType == typeof(string)))
+                {
+                    switch (svalue.Trim().ToLower(System.Globalization.CultureInfo.InvariantCulture))
+                    {
+                        case SqlConnectionString.NETLIB.NamedPipes:
+                            return NamedPipes;
+                        case SqlConnectionString.NETLIB.SharedMemory:
+                            return SharedMemory;
+                        case SqlConnectionString.NETLIB.TCPIP:
+                            return TCPIP;
+                        case SqlConnectionString.NETLIB.VIA:
+                            return VIA;
+                        default:
+                            return svalue;
+                    }
+                }
+                return base.ConvertTo(context, culture, value, destinationType);
+            }
+
+            public override bool GetStandardValuesSupported(ITypeDescriptorContext context)
+            {
+                return true;
+            }
+
+            public override bool GetStandardValuesExclusive(ITypeDescriptorContext context)
+            {
+                return false;
+            }
+
+            public override StandardValuesCollection GetStandardValues(ITypeDescriptorContext context)
+            {
+
+                SqlConnectionStringBuilder constr = null;
+                if (null != context)
+                {
+                    constr = (context.Instance as SqlConnectionStringBuilder);
+                }
+
+                StandardValuesCollection standardValues = _standardValues;
+                if (null == standardValues)
+                {
+                    string[] names = new string[] {
+                        NamedPipes,
+                        SharedMemory,
+                        TCPIP,
+                        VIA,
+                    };
+                    standardValues = new StandardValuesCollection(names);
+                    _standardValues = standardValues;
+                }
+                return standardValues;
+            }
+        }
 
         private Exception UnsupportedKeyword(string keyword)
         {

@@ -352,6 +352,12 @@
   <data name="SQL_CannotModifyPropertyAsyncOperationInProgress" xml:space="preserve">
     <value>{0} cannot be changed while async operation is in progress.</value>
   </data>
+   <data name="SQL_ContextAllowsLimitedKeywords" xml:space="preserve">
+    <value>The only additional connection string keyword that may be used when requesting the context connection is the Type System Version keyword.</value>
+  </data>
+     <data name="SQL_ContextUnavailableOutOfProc" xml:space="preserve">
+    <value>The requested operation requires a SqlClr context, which is only available when running in the Sql Server process.</value>
+  </data>
   <data name="SQL_InstanceFailure" xml:space="preserve">
     <value>Instance failure.</value>
   </data>

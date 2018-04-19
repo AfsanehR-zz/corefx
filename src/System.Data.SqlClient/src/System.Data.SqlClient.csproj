@@ -117,19 +117,29 @@
     <Compile Include="System\Data\SqlClient\SqlClientDiagnosticListenerExtensions.cs" />
     <Compile Include="System\Data\SqlClient\SqlClientFactory.cs" />
     <Compile Include="System\Data\SqlClient\SqlClientMetaDataCollectionNames.cs" />
-    <Compile Include="System\Data\SqlClient\SqlCommand.cs" />
-    <Compile Include="System\Data\SqlClient\SqlCommandBuilder.cs" />
+    <Compile Include="System\Data\SqlClient\SqlCommand.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="System\Data\SqlClient\SqlCommandBuilder.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="System\Data\SqlClient\SqlCommandSet.cs" />
-    <Compile Include="System\Data\SqlClient\SqlConnection.cs" />
+    <Compile Include="System\Data\SqlClient\SqlConnection.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="System\Data\SqlClient\SqlConnectionFactory.cs" />
-    <Compile Include="System\Data\SqlClient\SqlConnectionHelper.cs" />
+    <Compile Include="System\Data\SqlClient\SqlConnectionHelper.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="System\Data\SqlClient\SqlConnectionPoolGroupProviderInfo.cs" />
     <Compile Include="System\Data\SqlClient\SqlConnectionPoolKey.cs" />
     <Compile Include="System\Data\SqlClient\SqlConnectionPoolProviderInfo.cs" />
     <Compile Include="System\Data\SqlClient\SqlConnectionString.cs" />
     <Compile Include="System\Data\SqlClient\SqlConnectionStringBuilder.cs" />
     <Compile Include="System\Data\SqlClient\SqlConnectionTimeoutErrorInternal.cs" />
-    <Compile Include="System\Data\SqlClient\SqlDataAdapter.cs" />
+    <Compile Include="System\Data\SqlClient\SqlDataAdapter.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="System\Data\SqlClient\SqlDataReader.cs" />
     <Compile Include="System\Data\SqlClient\SqlDependency.cs" />
     <Compile Include="System\Data\SqlClient\SqlDependencyListener.cs" />
@@ -233,6 +243,9 @@
     </Compile>
     <Compile Include="$(CommonPath)\Interop\Windows\kernel32\Interop.GetProcAddress.cs">
       <Link>Common\Interop\Windows\kernel32\Interop.GetProcAddress.cs</Link>
+    </Compile>
+	<Compile Include="$(CommonPath)\Interop\Windows\kernel32\Interop.GetModuleHandle.cs">
+      <Link>Common\Interop\Windows\kernel32\Interop.GetModuleHandle.cs</Link>
     </Compile>
     <Compile Include="$(CommonPath)\Microsoft\Win32\SafeHandles\SafeLibraryHandle.cs">
       <Link>Common\Microsoft\Win32\SafeHandles\SafeLibraryHandle.cs</Link>
@@ -465,6 +478,9 @@
     <EmbeddedResource Include="Resources\System.Data.SqlClient.SqlMetaData.xml">
       <LogicalName>System.Data.SqlClient.SqlMetaData.xml</LogicalName>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="System\Data\SqlClient\PoolBlockingPeriod.cs" />
   </ItemGroup>
   <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), dir.targets))\dir.targets" />
   <Import Project=".\GenerateThisAssemblyCs.targets" Condition="'$(IsPartialFacadeAssembly)' != 'true'" />

@@ -11,7 +11,9 @@ internal partial class Interop
 {
     internal partial class Kernel32
     {
-        [DllImport(Libraries.Kernel32, EntryPoint = "GetModuleHandleW", CharSet = CharSet.Unicode, SetLastError = true)]
-        internal static extern IntPtr GetModuleHandle(string moduleName);        
+#pragma warning disable BCL0015 // Invalid Pinvoke call
+        [DllImport(Libraries.Kernel32, EntryPoint = "GetModuleHandle", CharSet = CharSet.Unicode, SetLastError = true)]
+        internal static extern IntPtr GetModuleHandle(string moduleName);
+#pragma warning restore BCL0015 // Invalid Pinvoke call
     }
 }

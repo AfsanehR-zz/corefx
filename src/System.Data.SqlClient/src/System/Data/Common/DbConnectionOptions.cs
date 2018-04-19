@@ -41,6 +41,8 @@ namespace System.Data.Common
 
         public bool IsEmpty => _keyChain == null;
 
+        internal Dictionary<string, string> Parsetable => _parsetable;
+
         internal bool TryGetParsetableValue(string key, out string value) => _parsetable.TryGetValue(key, out value);
 
         // same as Boolean, but with SSPI thrown in as valid yes

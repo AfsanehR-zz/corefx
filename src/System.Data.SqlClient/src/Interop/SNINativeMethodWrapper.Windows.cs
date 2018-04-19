@@ -406,6 +406,8 @@ namespace System.Data
     {
         [DllImport("kernel32.dll", CharSet = CharSet.Ansi, BestFitMapping = false, ThrowOnUnmappableChar = true, SetLastError = true)]
         internal static extern IntPtr GetProcAddress(IntPtr HModule, [MarshalAs(UnmanagedType.LPStr), In] string funcName);
+        //[System.Runtime.Versioning.ResourceExposure(System.Runtime.Versioning.ResourceScope.Process)]
+        //static internal extern IntPtr GetModuleHandle([MarshalAs(UnmanagedType.LPTStr), In] string moduleName/*lpctstr*/);
     }
 }
 

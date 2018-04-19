@@ -140,6 +140,48 @@ namespace System.Data.SqlClient
         }
     }
 
+    sealed internal class InOutOfProcHelper
+    {
+        private static readonly InOutOfProcHelper SingletonInstance = new InOutOfProcHelper();
+
+        private bool _inProc = false;
+
+        // InOutOfProcHelper detects whether it's running inside the server or not.  It does this
+        //  by checking for the existence of a well-known function export on the current process.
+        //  Note that calling conventions, etc. do not matter -- we'll never call the function, so 
+        //  only the name match or lack thereof matter.
+        private InOutOfProcHelper()
+        {
+            // Don't need to close this handle...
+            // SxS: we use this method to check if we are running inside the SQL Server process. This call should be safe in SxS environment.
+            IntPtr handle =  Interop.Kernel32.GetModuleHandle(null);
+            //SafeNativeMethods.GetModuleHandle(null);
+            
+            if (IntPtr.Zero != handle)
+            {
+                // SQLBU 359301: Currently, the server exports different names for x86 vs. AMD64 and IA64.  Supporting both names
+                //  for now gives the server time to unify names across platforms without breaking currently-working ones.
+                //  We can remove the obsolete name once the server is changed.
+                if (IntPtr.Zero != SafeNativeMethods.GetProcAddress(handle, "_______SQL______Process______Available@0"))
+                {
+                    _inProc = true;
+                }
+                else if (IntPtr.Zero != SafeNativeMethods.GetProcAddress(handle, "______SQL______Process______Available"))
+                {
+                    _inProc = true;
+                }
+            }
+        }
+
+        internal static bool InProc
+        {
+            get
+            {
+                return SingletonInstance._inProc;
+            }
+        }
+    }
+
 
     internal static class SQL
     {
@@ -898,6 +940,16 @@ namespace System.Data.SqlClient
         internal static Exception BatchedUpdatesNotAvailableOnContextConnection()
         {
             return ADP.InvalidOperation(SR.GetString(SR.SQL_BatchedUpdatesNotAvailableOnContextConnection));
+        }
+
+        static internal Exception ContextAllowsLimitedKeywords()
+        {
+            return ADP.InvalidOperation(SR.GetString(SR.SQL_ContextAllowsLimitedKeywords));
+        }
+
+        static internal Exception ContextUnavailableOutOfProc()
+        {
+            return ADP.InvalidOperation(SR.GetString(SR.SQL_ContextUnavailableOutOfProc));
         }
 
         /// <summary>

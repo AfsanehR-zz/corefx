@@ -21,7 +21,11 @@ namespace System.Data.SqlClient
         {
             internal const ApplicationIntent ApplicationIntent = DbConnectionStringDefaults.ApplicationIntent;
             internal const string Application_Name = TdsEnums.SQL_PROVIDER_NAME;
+            internal const bool Asynchronous = false;
             internal const string AttachDBFilename = "";
+            internal const PoolBlockingPeriod PoolBlockingPeriod = DbConnectionStringDefaults.PoolBlockingPeriod;
+            internal const bool Connection_Reset = true;
+            internal const bool Context_Connection = false;
             internal const int Connect_Timeout = ADP.DefaultConnectionTimeout;
             internal const string Current_Language = "";
             internal const string Data_Source = "";
@@ -35,6 +39,8 @@ namespace System.Data.SqlClient
             internal const int Max_Pool_Size = 100;
             internal const int Min_Pool_Size = 0;
             internal const bool MultiSubnetFailover = DbConnectionStringDefaults.MultiSubnetFailover;
+            internal const bool TransparentNetworkIPResolution = DbConnectionStringDefaults.TransparentNetworkIPResolution;
+            internal const string Network_Library = "";
             internal const int Packet_Size = 8000;
             internal const string Password = "";
             internal const bool Persist_Security_Info = false;
@@ -71,6 +77,7 @@ namespace System.Data.SqlClient
             internal const string Max_Pool_Size = "max pool size";
             internal const string Min_Pool_Size = "min pool size";
             internal const string MultiSubnetFailover = "multisubnetfailover";
+            internal const string TransparentNetworkIPResolution = "transparentnetworkipresolution";
             internal const string Network_Library = "network library";
             internal const string Packet_Size = "packet size";
             internal const string Password = "password";
@@ -85,6 +92,7 @@ namespace System.Data.SqlClient
             internal const string Replication = "replication";
             internal const string Connect_Retry_Count = "connectretrycount";
             internal const string Connect_Retry_Interval = "connectretryinterval";
+            internal const string PoolBlockingPeriod = "poolblockingperiod";
         }
 
         // Constant for the number of duplicate options in the connection string
@@ -128,9 +136,21 @@ namespace System.Data.SqlClient
             // make sure to update SynonymCount value below when adding or removing synonyms
         }
 
-        internal const int SynonymCount = 18;
-        internal const int DeprecatedSynonymCount = 3;
+        internal const int SynonymCount = 21;//18;
+        internal const int DeprecatedSynonymCount = 0;//3;// 1;//3;
 
+        // the following are all inserted as keys into the _netlibMapping hash
+        internal static class NETLIB
+        {
+            internal const string AppleTalk = "dbmsadsn";
+            internal const string BanyanVines = "dbmsvinn";
+            internal const string IPXSPX = "dbmsspxn";
+            internal const string Multiprotocol = "dbmsrpcn";
+            internal const string NamedPipes = "dbnmpntw";
+            internal const string SharedMemory = "dbmslpcn";
+            internal const string TCPIP = "dbmssocn";
+            internal const string VIA = "dbmsgnet";
+        }
 
         internal enum TypeSystem
         {
@@ -163,9 +183,13 @@ namespace System.Data.SqlClient
         }
 
         private static Dictionary<string, string> s_sqlClientSynonyms;
+        static private System.Collections.Hashtable _netlibMapping;
 
         private readonly bool _integratedSecurity;
 
+        private readonly PoolBlockingPeriod _poolBlockingPeriod;
+        private readonly bool _connectionReset;
+        private readonly bool _contextConnection;
         private readonly bool _encrypt;
         private readonly bool _trustServerCertificate;
         private readonly bool _enlist;
@@ -175,6 +199,7 @@ namespace System.Data.SqlClient
         private readonly bool _replication;
         private readonly bool _userInstance;
         private readonly bool _multiSubnetFailover;
+        private readonly bool _transparentNetworkIPResolution;
 
         private readonly int _connectTimeout;
         private readonly int _loadBalanceTimeout;
@@ -194,7 +219,7 @@ namespace System.Data.SqlClient
         private readonly string _initialCatalog;
         private readonly string _password;
         private readonly string _userID;
-
+        private readonly string _networkLibrary;
         private readonly string _workstationId;
 
         private readonly TransactionBindingEnum _transactionBinding;
@@ -206,17 +231,18 @@ namespace System.Data.SqlClient
 
         internal SqlConnectionString(string connectionString) : base(connectionString, GetParseSynonyms())
         {
-            ThrowUnsupportedIfKeywordSet(KEY.AsynchronousProcessing);
-            ThrowUnsupportedIfKeywordSet(KEY.Connection_Reset);
-            ThrowUnsupportedIfKeywordSet(KEY.Context_Connection);
-
             // Network Library has its own special error message
-            if (ContainsKey(KEY.Network_Library))
-            {
-                throw SQL.NetworkLibraryKeywordNotSupported();
-            }
+            //if (ContainsKey(KEY.Network_Library))
+           // {
+            //    throw SQL.NetworkLibraryKeywordNotSupported();
+            //}
+            bool runningInProc = InOutOfProcHelper.InProc;
+            ConvertValueToBoolean(KEY.AsynchronousProcessing, DEFAULT.Asynchronous); // while we don't use it anymore, we still need to verify it is true/false
 
             _integratedSecurity = ConvertValueToIntegratedSecurity();
+            _poolBlockingPeriod = ConvertValueToPoolBlockingPeriod();
+            _connectionReset = ConvertValueToBoolean(KEY.Connection_Reset, DEFAULT.Connection_Reset);
+            _contextConnection = ConvertValueToBoolean(KEY.Context_Connection, DEFAULT.Context_Connection);
             _encrypt = ConvertValueToBoolean(KEY.Encrypt, DEFAULT.Encrypt);
             _enlist = ConvertValueToBoolean(KEY.Enlist, DEFAULT.Enlist);
             _mars = ConvertValueToBoolean(KEY.MARS, DEFAULT.MARS);
@@ -225,6 +251,7 @@ namespace System.Data.SqlClient
             _replication = ConvertValueToBoolean(KEY.Replication, DEFAULT.Replication);
             _userInstance = ConvertValueToBoolean(KEY.User_Instance, DEFAULT.User_Instance);
             _multiSubnetFailover = ConvertValueToBoolean(KEY.MultiSubnetFailover, DEFAULT.MultiSubnetFailover);
+            _transparentNetworkIPResolution = ConvertValueToBoolean(KEY.TransparentNetworkIPResolution, DEFAULT.TransparentNetworkIPResolution);
 
             _connectTimeout = ConvertValueToInt32(KEY.Connect_Timeout, DEFAULT.Connect_Timeout);
             _loadBalanceTimeout = ConvertValueToInt32(KEY.Load_Balance_Timeout, DEFAULT.Load_Balance_Timeout);
@@ -242,6 +269,7 @@ namespace System.Data.SqlClient
             _localDBInstance = LocalDBAPI.GetLocalDbInstanceNameFromServerName(_dataSource);
             _failoverPartner = ConvertValueToString(KEY.FailoverPartner, DEFAULT.FailoverPartner);
             _initialCatalog = ConvertValueToString(KEY.Initial_Catalog, DEFAULT.Initial_Catalog);
+            _networkLibrary = ConvertValueToString(KEY.Network_Library, null);
             _password = ConvertValueToString(KEY.Password, DEFAULT.Password);
             _trustServerCertificate = ConvertValueToBoolean(KEY.TrustServerCertificate, DEFAULT.TrustServerCertificate);
 
@@ -253,6 +281,28 @@ namespace System.Data.SqlClient
             _workstationId = ConvertValueToString(KEY.Workstation_Id, null);
 
 
+            if (_contextConnection)
+            {
+                // We have to be running in the engine for you to request a 
+                // context connection.
+
+                if (!runningInProc)
+                {
+                    throw SQL.ContextUnavailableOutOfProc();
+                }
+
+                // When using a context connection, we need to ensure that no 
+                // other connection string keywords are specified.
+
+                foreach (KeyValuePair<string, string> entry in Parsetable)
+                {
+                    if ((string)entry.Key != KEY.Context_Connection &&
+                        (string)entry.Key != KEY.Type_System_Version)
+                    {
+                        throw SQL.ContextAllowsLimitedKeywords();
+                    }
+                }
+            }
 
             if (_loadBalanceTimeout < 0)
             {
@@ -283,6 +333,20 @@ namespace System.Data.SqlClient
                 throw SQL.InvalidPacketSizeValue();
             }
 
+            if (null != _networkLibrary)
+            { 
+                string networkLibrary = _networkLibrary.Trim().ToLower(System.Globalization.CultureInfo.InvariantCulture);
+                System.Collections.Hashtable netlib = NetlibMapping();
+                if (!netlib.ContainsKey(networkLibrary))
+                {
+                    throw ADP.InvalidConnectionOptionValue(KEY.Network_Library);
+                }
+                _networkLibrary = (string)netlib[networkLibrary];
+            }
+            else
+            {
+                _networkLibrary = DEFAULT.Network_Library;
+            }
 
             ValidateValueLength(_applicationName, TdsEnums.MAXLEN_APPNAME, KEY.Application_Name);
             ValidateValueLength(_currentLanguage, TdsEnums.MAXLEN_LANGUAGE, KEY.Current_Language);
@@ -395,6 +459,8 @@ namespace System.Data.SqlClient
         internal SqlConnectionString(SqlConnectionString connectionOptions, string dataSource, bool userInstance, bool? setEnlistValue) : base(connectionOptions)
         {
             _integratedSecurity = connectionOptions._integratedSecurity;
+            _connectionReset = connectionOptions._connectionReset;
+            _contextConnection = connectionOptions._contextConnection;
             _encrypt = connectionOptions._encrypt;
 
             if (setEnlistValue.HasValue)
@@ -416,6 +482,7 @@ namespace System.Data.SqlClient
             _maxPoolSize = connectionOptions._maxPoolSize;
             _minPoolSize = connectionOptions._minPoolSize;
             _multiSubnetFailover = connectionOptions._multiSubnetFailover;
+            _transparentNetworkIPResolution = connectionOptions._transparentNetworkIPResolution;
             _packetSize = connectionOptions._packetSize;
             _applicationName = connectionOptions._applicationName;
             _attachDBFileName = connectionOptions._attachDBFileName;
@@ -426,6 +493,7 @@ namespace System.Data.SqlClient
             _initialCatalog = connectionOptions._initialCatalog;
             _password = connectionOptions._password;
             _userID = connectionOptions._userID;
+            _networkLibrary                 = connectionOptions._networkLibrary;
             _workstationId = connectionOptions._workstationId;
             _typeSystemVersion = connectionOptions._typeSystemVersion;
             _transactionBinding = connectionOptions._transactionBinding;
@@ -442,14 +510,18 @@ namespace System.Data.SqlClient
         // will work.  In the future we can deprecate the keyword entirely.
         internal bool Asynchronous { get { return true; } }
 
+        internal PoolBlockingPeriod PoolBlockingPeriod { get { return _poolBlockingPeriod; } }
+
         // SQLPT 41700: Ignore ResetConnection=False, always reset the connection for security
         internal bool ConnectionReset { get { return true; } }
+        internal bool ContextConnection { get { return _contextConnection; } }
         //        internal bool EnableUdtDownload { get { return _enableUdtDownload;} }
         internal bool Encrypt { get { return _encrypt; } }
         internal bool TrustServerCertificate { get { return _trustServerCertificate; } }
         internal bool Enlist { get { return _enlist; } }
         internal bool MARS { get { return _mars; } }
         internal bool MultiSubnetFailover { get { return _multiSubnetFailover; } }
+        internal bool TransparentNetworkIPResolution { get { return _transparentNetworkIPResolution; } }
 
         internal bool PersistSecurityInfo { get { return _persistSecurityInfo; } }
         internal bool Pooling { get { return _pooling; } }
@@ -472,6 +544,7 @@ namespace System.Data.SqlClient
         internal string LocalDBInstance { get { return _localDBInstance; } }
         internal string FailoverPartner { get { return _failoverPartner; } }
         internal string InitialCatalog { get { return _initialCatalog; } }
+        internal string NetworkLibrary { get { return _networkLibrary; } }
         internal string Password { get { return _password; } }
         internal string UserID { get { return _userID; } }
         internal string WorkstationId { get { return _workstationId; } }
@@ -495,6 +568,7 @@ namespace System.Data.SqlClient
                     { KEY.Application_Name, KEY.Application_Name },
                     { KEY.AsynchronousProcessing, KEY.AsynchronousProcessing },
                     { KEY.AttachDBFilename, KEY.AttachDBFilename },
+                    { KEY.PoolBlockingPeriod, KEY.PoolBlockingPeriod}, 
                     { KEY.Connect_Timeout, KEY.Connect_Timeout },
                     { KEY.Connection_Reset, KEY.Connection_Reset },
                     { KEY.Context_Connection, KEY.Context_Connection },
@@ -510,6 +584,7 @@ namespace System.Data.SqlClient
                     { KEY.Max_Pool_Size, KEY.Max_Pool_Size },
                     { KEY.Min_Pool_Size, KEY.Min_Pool_Size },
                     { KEY.MultiSubnetFailover, KEY.MultiSubnetFailover },
+                    { KEY.TransparentNetworkIPResolution, KEY.TransparentNetworkIPResolution },
                     { KEY.Network_Library, KEY.Network_Library },
                     { KEY.Packet_Size, KEY.Packet_Size },
                     { KEY.Password, KEY.Password },
@@ -570,6 +645,27 @@ namespace System.Data.SqlClient
             return result;
         }
 
+        static internal System.Collections.Hashtable NetlibMapping()
+        {
+            const int NetLibCount = 8;
+
+            System.Collections.Hashtable hash = _netlibMapping;
+            if (null == hash)
+            {
+                hash = new System.Collections.Hashtable(NetLibCount);
+                hash.Add(NETLIB.TCPIP, TdsEnums.TCP);
+                hash.Add(NETLIB.NamedPipes, TdsEnums.NP);
+                hash.Add(NETLIB.Multiprotocol, TdsEnums.RPC);
+                hash.Add(NETLIB.BanyanVines, TdsEnums.BV);
+                hash.Add(NETLIB.AppleTalk, TdsEnums.ADSP);
+                hash.Add(NETLIB.IPXSPX, TdsEnums.SPX);
+                hash.Add(NETLIB.VIA, TdsEnums.VIA);
+                hash.Add(NETLIB.SharedMemory, TdsEnums.LPC);
+                Debug.Assert(NetLibCount == hash.Count, "incorrect initial NetlibMapping size");
+                _netlibMapping = hash;
+            }
+            return hash;
+        }
 
         private void ValidateValueLength(string value, int limit, string key)
         {
@@ -604,6 +700,31 @@ namespace System.Data.SqlClient
             }
             // ArgumentException and other types are raised as is (no wrapping)
         }
+
+        internal System.Data.SqlClient.PoolBlockingPeriod ConvertValueToPoolBlockingPeriod()
+        {
+            //object value = base.Parsetable[KEY.PoolBlockingPeriod]; 
+            string value;
+            base.Parsetable.TryGetValue(KEY.PoolBlockingPeriod, out value);
+            if (value == null)
+            {
+                return DEFAULT.PoolBlockingPeriod;
+            }
+
+            try
+            {
+                return DbConnectionStringBuilderUtil.ConvertToPoolBlockingPeriod(KEY.PoolBlockingPeriod, value);
+            }
+            catch (FormatException e)
+            {
+                throw ADP.InvalidConnectionOptionValue(KEY.PoolBlockingPeriod, e);
+            }
+            catch (OverflowException e)
+            {
+                throw ADP.InvalidConnectionOptionValue(KEY.PoolBlockingPeriod, e);
+            }
+        }
+
         internal void ThrowUnsupportedIfKeywordSet(string keyword)
         {
             if (ContainsKey(keyword))
