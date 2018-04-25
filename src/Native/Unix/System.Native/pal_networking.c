@@ -44,6 +44,10 @@
 #elif HAVE_SENDFILE_6
 #include <sys/uio.h>
 #endif
+#if !HAVE_IN_PKTINFO
+#include <net/if.h>
+#include <ifaddrs.h>
+#endif
 
 #if HAVE_KQUEUE
 #if KEVENT_HAS_VOID_UDATA
@@ -779,11 +783,23 @@ static int32_t GetIPv4PacketInformation(struct cmsghdr* controlMessage, struct I
 #if HAVE_IN_PKTINFO
     packetInfo->InterfaceIndex = (int32_t)pktinfo->ipi_ifindex;
 #else
-    // TODO (#7855): Figure out how to get interface index with in_addr.
-    // One option is http://www.unix.com/man-page/freebsd/3/if_nametoindex
-    // which requires interface name to be known.
-    // Meanwhile:
     packetInfo->InterfaceIndex = 0;
+
+    struct ifaddrs* addrs;
+    if (getifaddrs(&addrs) == 0)
+    {
+        struct ifaddrs* addrs_head = addrs;
+        while (addrs != NULL)
+        {
+            if (addrs->ifa_addr->sa_family == AF_INET && ((struct sockaddr_in*)addrs->ifa_addr)->sin_addr.s_addr == pktinfo->ipi_addr.s_addr)
+            {
+                packetInfo->InterfaceIndex = (int32_t)if_nametoindex(addrs->ifa_name);
+                break;
+            }
+            addrs = addrs->ifa_next;
+        }
+        freeifaddrs(addrs_head);
+    }
 #endif
 
     return 1;
@@ -813,13 +829,12 @@ struct cmsghdr* GET_CMSG_NXTHDR(struct msghdr* mhdr, struct cmsghdr* cmsg)
 #ifndef __GLIBC__
 // Tracking issue: #6312
 // In musl-libc, CMSG_NXTHDR typecasts char* to struct cmsghdr* which causes
-// clang to throw cast-align warning. This is to suppress the warning
+// clang to throw sign-compare warning. This is to suppress the warning
 // inline.
 // There is also a problem in the CMSG_NXTHDR macro in musl-libc.
 // It compares signed and unsigned value and clang warns about that.
 // So we suppress the warning inline too.
 #pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcast-align"
 #pragma clang diagnostic ignored "-Wsign-compare"
 #endif
     return CMSG_NXTHDR(mhdr, cmsg);
@@ -1953,13 +1968,13 @@ int32_t SystemNative_GetBytesAvailable(intptr_t socket, int32_t* available)
 
 static const size_t SocketEventBufferElementSize = sizeof(struct epoll_event) > sizeof(struct SocketEvent) ? sizeof(struct epoll_event) : sizeof(struct SocketEvent);
 
-static enum SocketEvents GetSocketEvents(uint32_t events)
+static int GetSocketEvents(uint32_t events)
 {
     int asyncEvents = (((events & EPOLLIN) != 0) ? SocketEvents_SA_READ : 0) | (((events & EPOLLOUT) != 0) ? SocketEvents_SA_WRITE : 0) |
                       (((events & EPOLLRDHUP) != 0) ? SocketEvents_SA_READCLOSE : 0) |
                       (((events & EPOLLHUP) != 0) ? SocketEvents_SA_CLOSE : 0) | (((events & EPOLLERR) != 0) ? SocketEvents_SA_ERROR : 0);
 
-    return (enum SocketEvents)asyncEvents;
+    return asyncEvents;
 }
 
 static uint32_t GetEPollEvents(enum SocketEvents events)
@@ -2431,7 +2446,7 @@ int32_t SystemNative_SendFile(intptr_t out_fd, intptr_t in_fd, int64_t offset, i
         return SystemNative_ConvertErrorPlatformToPal(errno);
     }
 
-#else    
+#else
     // If we ever need to run on a platform that doesn't have sendfile,
     // we can implement this with a simple read/send loop.  For now,
     // we just mark it as not supported.

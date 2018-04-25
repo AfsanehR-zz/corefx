@@ -2,14 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Microsoft.Win32;
-using System;
 using System.Diagnostics;
-using System.Security.Principal;
-using Xunit;
-using System.IO;
-using System.Threading;
 using System.IO.Pipes;
+using System.Security.Principal;
 using System.Threading.Tasks;
 
 namespace System.ServiceProcess.Tests
@@ -17,6 +12,7 @@ namespace System.ServiceProcess.Tests
     internal sealed class TestServiceProvider
     {
         private const int readTimeout = 60000;
+        public const string LocalServiceName = "NT AUTHORITY\\LocalService";
 
         private static readonly Lazy<bool> s_runningWithElevatedPrivileges = new Lazy<bool>(
             () => new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator));
@@ -52,6 +48,7 @@ namespace System.ServiceProcess.Tests
         public readonly string TestMachineName;
         public readonly TimeSpan ControlTimeout;
         public readonly string TestServiceName;
+        public readonly string Username;
         public readonly string TestServiceDisplayName;
 
         private readonly TestServiceProvider _dependentServices;
@@ -68,12 +65,13 @@ namespace System.ServiceProcess.Tests
             CreateTestServices();
         }
 
-        public TestServiceProvider(string serviceName)
+        public TestServiceProvider(string serviceName, string userName = LocalServiceName)
         {
             TestMachineName = ".";
             ControlTimeout = TimeSpan.FromSeconds(120);
             TestServiceName = serviceName;
             TestServiceDisplayName = "Test Service " + TestServiceName;
+            Username = userName; 
 
             // Create the service
             CreateTestServices();
@@ -84,7 +82,7 @@ namespace System.ServiceProcess.Tests
             Task readTask;
             byte[] received = new byte[] { 0 };
             readTask = Client.ReadAsync(received, 0, 1);
-            await readTask.TimeoutAfter(readTimeout);
+            await readTask.TimeoutAfter(readTimeout).ConfigureAwait(false);
             return received[0];
         }
 
@@ -97,6 +95,7 @@ namespace System.ServiceProcess.Tests
             testServiceInstaller.ServiceName = TestServiceName;
             testServiceInstaller.DisplayName = TestServiceDisplayName;
             testServiceInstaller.Description = "__Dummy Test Service__";
+            testServiceInstaller.Username = Username;
 
             if (_dependentServices != null)
             {

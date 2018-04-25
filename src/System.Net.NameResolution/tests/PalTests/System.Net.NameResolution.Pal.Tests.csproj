@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
   <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), dir.props))\dir.props" />
   <PropertyGroup>
@@ -10,10 +10,6 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netcoreapp-Unix-Release|AnyCPU'" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netcoreapp-Windows_NT-Debug|AnyCPU'" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netcoreapp-Windows_NT-Release|AnyCPU'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netstandard-Unix-Debug|AnyCPU'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netstandard-Unix-Release|AnyCPU'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netstandard-Windows_NT-Debug|AnyCPU'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'netstandard-Windows_NT-Release|AnyCPU'" />
   <!-- Do not reference these assemblies from the TargetingPack since we are building part of the source code for tests. -->
   <ItemGroup>
     <TargetingPackExclusions Include="System.Net.NameResolution" />
@@ -56,7 +52,7 @@
     <Compile Include="$(CommonTestPath)\System\Net\Configuration.Http.cs">
       <Link>Common\System\Net\Configuration.Http.cs</Link>
     </Compile>
-	<Compile Include="$(CommonPath)\System\Net\ByteOrder.cs">
+    <Compile Include="$(CommonPath)\System\Net\ByteOrder.cs">
       <Link>Common\System\Net\ByteOrder.cs</Link>
     </Compile>
   </ItemGroup>
@@ -64,16 +60,19 @@
     <Compile Include="..\..\src\System\Net\NameResolutionPal.Windows.cs">
       <Link>ProductionCode\System\Net\NameResolutionPal.Windows.cs</Link>
     </Compile>
+    <Compile Include="..\..\src\System\Net\NameResolutionPal.Uap.cs" Condition="'$(TargetGroup)' == 'uap'">
+      <Link>ProductionCode\System\Net\NameResolutionPal.Uap.cs</Link>
+    </Compile>
+    <Compile Include="..\..\src\System\Net\NameResolutionPal.Win32.cs" Condition="'$(TargetGroup)' == 'netcoreapp'">
+      <Link>ProductionCode\System\Net\NameResolutionPal.Win32.cs</Link>
+    </Compile>
     <Compile Include="$(CommonPath)\System\Net\InternalException.cs">
       <Link>Common\System\Net\InternalException.cs</Link>
-    </Compile>
-    <Compile Include="$(CommonPath)\System\Net\IntPtrHelper.cs">
-      <Link>Common\System\Net\IntPtrHelper.cs</Link>
     </Compile>
     <Compile Include="$(CommonPath)\System\Net\SocketProtocolSupportPal.Windows.cs">
       <Link>System\Net\SocketProtocolSupportPal.Windows</Link>
     </Compile>
-	<Compile Include="$(CommonPath)\System\Net\SocketAddressPal.Windows.cs">
+    <Compile Include="$(CommonPath)\System\Net\SocketAddressPal.Windows.cs">
       <Link>Common\System\Net\SocketAddressPal.Windows</Link>
     </Compile>
     <!-- Debug only -->
@@ -95,7 +94,7 @@
     </Compile>
     <Compile Include="$(CommonPath)\Interop\Windows\Winsock\Interop.closesocket.cs">
       <Link>Interop\Windows\Winsock\Interop.closesocket.cs</Link>
-    </Compile>    
+    </Compile>
     <Compile Include="$(CommonPath)\Interop\Windows\Winsock\Interop.gethostname.cs">
       <Link>Interop\Windows\Winsock\Interop.gethostname.cs</Link>
     </Compile>
@@ -167,7 +166,7 @@
     <Compile Include="$(CommonPath)\Interop\Unix\Interop.Libraries.cs">
       <Link>Interop\Unix\Interop.Libraries.cs</Link>
     </Compile>
-    <Compile Include="$(CommonPath)\Interop\Unix\System.Native\Interop.Close.cs">
+    <Compile Include="$(CommonPath)\CoreLib\Interop\Unix\System.Native\Interop.Close.cs">
       <Link>Interop\Unix\System.Native\Interop.Close.cs</Link>
     </Compile>
     <Compile Include="$(CommonPath)\Interop\Unix\System.Native\Interop.GetHostName.cs">

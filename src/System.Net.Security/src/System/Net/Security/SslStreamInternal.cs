@@ -167,7 +167,7 @@ namespace System.Net.Security
 
         internal void EndWrite(IAsyncResult asyncResult) => TaskToApm.End(asyncResult);
 
-        internal Task WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
+        internal ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken)
         {
             SslWriteAsync writeAdapter = new SslWriteAsync(_sslState, cancellationToken);
             return WriteAsyncInternal(writeAdapter, buffer);
@@ -176,13 +176,12 @@ namespace System.Net.Security
         internal Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             ValidateParameters(buffer, offset, count);
-            return WriteAsync(new ReadOnlyMemory<byte>(buffer, offset, count), cancellationToken);
+            return WriteAsync(new ReadOnlyMemory<byte>(buffer, offset, count), cancellationToken).AsTask();
         }
 
         private void ResetReadBuffer()
         {
             Debug.Assert(_decryptedBytesCount == 0);
-            Debug.Assert(_internalBuffer == null || _internalBufferCount > 0);
 
             if (_internalBuffer == null)
             {
@@ -232,22 +231,21 @@ namespace System.Net.Security
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, nameof(ReadAsync), "read"));
             }
 
-            while (true)
+            try
             {
-                int copyBytes;
-                if (_decryptedBytesCount != 0)
+                while (true)
                 {
-                    copyBytes = CopyDecryptedData(buffer);
+                    int copyBytes;
+                    if (_decryptedBytesCount != 0)
+                    {
+                        copyBytes = CopyDecryptedData(buffer);
 
-                    _sslState.FinishRead(null);
-                    _nestedRead = 0;
+                        _sslState.FinishRead(null);
 
-                    return copyBytes;
-                }
+                        return copyBytes;
+                    }
 
-                copyBytes = await adapter.LockAsync(buffer).ConfigureAwait(false);
-                try
-                {
+                    copyBytes = await adapter.LockAsync(buffer).ConfigureAwait(false);
                     if (copyBytes > 0)
                     {
                         return copyBytes;
@@ -320,25 +318,25 @@ namespace System.Net.Security
                         throw new IOException(SR.net_io_decrypt, message.GetException());
                     }
                 }
-                catch (Exception e)
-                {
-                    _sslState.FinishRead(null);
+            }
+            catch (Exception e)
+            {
+                _sslState.FinishRead(null);
 
-                    if (e is IOException)
-                    {
-                        throw;
-                    }
-
-                    throw new IOException(SR.net_io_read, e);
-                }
-                finally
+                if (e is IOException)
                 {
-                    _nestedRead = 0;
+                    throw;
                 }
+
+                throw new IOException(SR.net_io_read, e);
+            }
+            finally
+            {
+                _nestedRead = 0;
             }
         }
 
-        private Task WriteAsyncInternal<TWriteAdapter>(TWriteAdapter writeAdapter, ReadOnlyMemory<byte> buffer)
+        private ValueTask WriteAsyncInternal<TWriteAdapter>(TWriteAdapter writeAdapter, ReadOnlyMemory<byte> buffer)
             where TWriteAdapter : struct, ISslWriteAdapter
         {
             _sslState.CheckThrow(authSuccessCheck: true, shutdownCheck: true);
@@ -346,7 +344,7 @@ namespace System.Net.Security
             if (buffer.Length == 0 && !SslStreamPal.CanEncryptEmptyMessage)
             {
                 // If it's an empty message and the PAL doesn't support that, we're done.
-                return Task.CompletedTask;
+                return default;
             }
 
             if (Interlocked.Exchange(ref _nestedWrite, 1) == 1)
@@ -354,18 +352,18 @@ namespace System.Net.Security
                 throw new NotSupportedException(SR.Format(SR.net_io_invalidnestedcall, nameof(WriteAsync), "write"));
             }
 
-            Task t = buffer.Length < _sslState.MaxDataSize ?
+            ValueTask t = buffer.Length < _sslState.MaxDataSize ?
                     WriteSingleChunk(writeAdapter, buffer) :
-                    WriteAsyncChunked(writeAdapter, buffer);
+                    new ValueTask(WriteAsyncChunked(writeAdapter, buffer));
 
             if (t.IsCompletedSuccessfully)
             {
                 _nestedWrite = 0;
                 return t;
             }
-            return ExitWriteAsync(t);
+            return new ValueTask(ExitWriteAsync(t));
 
-            async Task ExitWriteAsync(Task task)
+            async Task ExitWriteAsync(ValueTask task)
             {
                 try
                 {
@@ -389,7 +387,7 @@ namespace System.Net.Security
             }
         }
 
-        private Task WriteSingleChunk<TWriteAdapter>(TWriteAdapter writeAdapter, ReadOnlyMemory<byte> buffer)
+        private ValueTask WriteSingleChunk<TWriteAdapter>(TWriteAdapter writeAdapter, ReadOnlyMemory<byte> buffer)
             where TWriteAdapter : struct, ISslWriteAdapter
         {
             // Request a write IO slot.
@@ -397,7 +395,7 @@ namespace System.Net.Security
             if (!ioSlot.IsCompletedSuccessfully)
             {
                 // Operation is async and has been queued, return.
-                return WaitForWriteIOSlot(writeAdapter, ioSlot, buffer);
+                return new ValueTask(WaitForWriteIOSlot(writeAdapter, ioSlot, buffer));
             }
 
             byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length + FrameOverhead);
@@ -410,10 +408,10 @@ namespace System.Net.Security
                 // Re-handshake status is not supported.
                 ArrayPool<byte>.Shared.Return(rentedBuffer);
                 ProtocolToken message = new ProtocolToken(null, status);
-                return Task.FromException(new IOException(SR.net_io_encrypt, message.GetException()));
+                return new ValueTask(Task.FromException(new IOException(SR.net_io_encrypt, message.GetException())));
             }
 
-            Task t = writeAdapter.WriteAsync(outBuffer, 0, encryptedBytes);
+            ValueTask t = writeAdapter.WriteAsync(outBuffer, 0, encryptedBytes);
             if (t.IsCompletedSuccessfully)
             {
                 ArrayPool<byte>.Shared.Return(rentedBuffer);
@@ -422,7 +420,7 @@ namespace System.Net.Security
             }
             else
             {
-                return CompleteAsync(t, rentedBuffer);
+                return new ValueTask(CompleteAsync(t, rentedBuffer));
             }
 
             async Task WaitForWriteIOSlot(TWriteAdapter wAdapter, Task lockTask, ReadOnlyMemory<byte> buff)
@@ -431,7 +429,7 @@ namespace System.Net.Security
                 await WriteSingleChunk(wAdapter, buff).ConfigureAwait(false);
             }
 
-            async Task CompleteAsync(Task writeTask, byte[] bufferToReturn)
+            async Task CompleteAsync(ValueTask writeTask, byte[] bufferToReturn)
             {
                 try
                 {
@@ -471,7 +469,7 @@ namespace System.Net.Security
                 ValueTask<int> t = adapter.ReadAsync(_internalBuffer, _internalBufferCount, _internalBuffer.Length - _internalBufferCount);
                 if (!t.IsCompletedSuccessfully)
                 {
-                    return new ValueTask<int>(InternalFillBufferAsync(adapter, t.AsTask(), minSize, initialCount));
+                    return new ValueTask<int>(InternalFillBufferAsync(adapter, t, minSize, initialCount));
                 }
                 int bytes = t.Result;
                 if (bytes == 0)
@@ -490,7 +488,7 @@ namespace System.Net.Security
 
             return new ValueTask<int>(minSize);
 
-            async Task<int> InternalFillBufferAsync(TReadAdapter adap, Task<int> task, int min, int initial)
+            async Task<int> InternalFillBufferAsync(TReadAdapter adap, ValueTask<int> task, int min, int initial)
             {
                 while (true)
                 {
@@ -511,7 +509,7 @@ namespace System.Net.Security
                         return min;
                     }
 
-                    task = adap.ReadAsync(_internalBuffer, _internalBufferCount, _internalBuffer.Length - _internalBufferCount).AsTask();
+                    task = adap.ReadAsync(_internalBuffer, _internalBufferCount, _internalBuffer.Length - _internalBufferCount);
                 }
             }
         }

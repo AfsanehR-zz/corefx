@@ -12,7 +12,7 @@ using Xunit.Abstractions;
 namespace System.Net.Http.Functional.Tests
 {
     [SkipOnTargetFramework(TargetFrameworkMonikers.Uap, "dotnet/corefx #20010")]
-    public class SchSendAuxRecordHttpTest : HttpClientTestBase
+    public abstract class SchSendAuxRecordHttpTest : HttpClientTestBase
     {
         readonly ITestOutputHelper _output;
         
@@ -75,7 +75,7 @@ namespace System.Net.Http.Functional.Tests
                 string requestUriString = "https://localhost:" + server.Port.ToString();
                 tasks[1] = client.GetStringAsync(requestUriString);
 
-                await Task.WhenAll(tasks).TimeoutAfter(15 * 1000);
+                await tasks.WhenAllOrAnyFailed(15 * 1000);
 
                 if (serverAuxRecordDetectedInconclusive)
                 {

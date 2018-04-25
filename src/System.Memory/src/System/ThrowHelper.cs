@@ -80,17 +80,13 @@ namespace System
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Exception CreateArgumentOutOfRangeException_PositionOutOfRange() { return new ArgumentOutOfRangeException("position"); }
 
-        internal static void ThrowArgumentOutOfRangeException_CountOutOfRange() { throw CreateArgumentOutOfRangeException_CountOutOfRange(); }
+        internal static void ThrowArgumentOutOfRangeException_OffsetOutOfRange() { throw CreateArgumentOutOfRangeException_OffsetOutOfRange(); }
         [MethodImpl(MethodImplOptions.NoInlining)]
-        private static Exception CreateArgumentOutOfRangeException_CountOutOfRange() { return new ArgumentOutOfRangeException("count"); }
+        private static Exception CreateArgumentOutOfRangeException_OffsetOutOfRange() { return new ArgumentOutOfRangeException(nameof(ExceptionArgument.offset)); }
 
         internal static void ThrowObjectDisposedException_ArrayMemoryPoolBuffer() { throw CreateObjectDisposedException_ArrayMemoryPoolBuffer(); }
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static Exception CreateObjectDisposedException_ArrayMemoryPoolBuffer() { return new ObjectDisposedException("ArrayMemoryPoolBuffer"); }
-
-        internal static void ThrowObjectDisposedException_MemoryDisposed() { throw CreateObjectDisposedException_MemoryDisposed(); }
-        [MethodImpl(MethodImplOptions.NoInlining)]
-        private static Exception CreateObjectDisposedException_MemoryDisposed() { return new ObjectDisposedException("OwnedMemory<T>", SR.MemoryDisposed); }
 
         internal static void ThrowFormatException_BadFormatSpecifier() { throw CreateFormatException_BadFormatSpecifier(); }
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -124,6 +120,53 @@ namespace System
             ThrowHelper.ThrowFormatException_BadFormatSpecifier();
             return false;
         }
+
+        //
+        // ReadOnlySequence .ctor validation Throws coalesced to enable inlining of the .ctor
+        //
+        public static void ThrowArgumentValidationException<T>(ReadOnlySequenceSegment<T> startSegment, int startIndex, ReadOnlySequenceSegment<T> endSegment)
+            => throw CreateArgumentValidationException(startSegment, startIndex, endSegment);
+
+        private static Exception CreateArgumentValidationException<T>(ReadOnlySequenceSegment<T> startSegment, int startIndex, ReadOnlySequenceSegment<T> endSegment)
+        {
+            if (startSegment == null)
+                return CreateArgumentNullException(ExceptionArgument.startSegment);
+            else if (endSegment == null)
+                return CreateArgumentNullException(ExceptionArgument.endSegment);
+            else if (startSegment != endSegment && startSegment.RunningIndex > endSegment.RunningIndex)
+                return CreateArgumentOutOfRangeException(ExceptionArgument.endSegment);
+            else if ((uint)startSegment.Memory.Length < (uint)startIndex)
+                return CreateArgumentOutOfRangeException(ExceptionArgument.startIndex);
+            else
+                return CreateArgumentOutOfRangeException(ExceptionArgument.endIndex);
+        }
+
+        public static void ThrowArgumentValidationException(Array array, int start)
+            => throw CreateArgumentValidationException(array, start);
+
+        private static Exception CreateArgumentValidationException(Array array, int start)
+        {
+            if (array == null)
+                return CreateArgumentNullException(ExceptionArgument.array);
+            else if ((uint)start > (uint)array.Length)
+                return CreateArgumentOutOfRangeException(ExceptionArgument.start);
+            else
+                return CreateArgumentOutOfRangeException(ExceptionArgument.length);
+        }
+
+        //
+        // ReadOnlySequence Slice validation Throws coalesced to enable inlining of the Slice
+        //
+        public static void ThrowStartOrEndArgumentValidationException(long start)
+            => throw CreateStartOrEndArgumentValidationException(start);
+
+        private static Exception CreateStartOrEndArgumentValidationException(long start)
+        {
+            if (start < 0)
+                return CreateArgumentOutOfRangeException(ExceptionArgument.start);
+            return CreateArgumentOutOfRangeException(ExceptionArgument.length);
+        }
+
     }
 
     //
@@ -134,7 +177,7 @@ namespace System
         length,
         start,
         minimumBufferSize,
-        byteOffset,
+        elementIndex,
         comparable,
         comparer,
         destination,
@@ -144,6 +187,7 @@ namespace System
         startIndex,
         endIndex,
         array,
-        ownedMemory
+        culture,
+        manager
     }
 }

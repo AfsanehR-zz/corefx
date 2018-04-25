@@ -21,11 +21,11 @@ namespace System.Net.Http
                 _contentBytesRemaining = contentLength;
             }
 
-            public override async ValueTask<int> ReadAsync(Memory<byte> destination, CancellationToken cancellationToken)
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                CancellationHelper.ThrowIfCancellationRequested(cancellationToken);
 
-                if (_connection == null || destination.Length == 0)
+                if (_connection == null || buffer.Length == 0)
                 {
                     // Response body fully consumed or the caller didn't ask for any data
                     return 0;
@@ -33,12 +33,12 @@ namespace System.Net.Http
 
                 Debug.Assert(_contentBytesRemaining > 0);
 
-                if ((ulong)destination.Length > _contentBytesRemaining)
+                if ((ulong)buffer.Length > _contentBytesRemaining)
                 {
-                    destination = destination.Slice(0, (int)_contentBytesRemaining);
+                    buffer = buffer.Slice(0, (int)_contentBytesRemaining);
                 }
 
-                ValueTask<int> readTask = _connection.ReadAsync(destination);
+                ValueTask<int> readTask = _connection.ReadAsync(buffer);
                 int bytesRead;
                 if (readTask.IsCompletedSuccessfully)
                 {
@@ -51,9 +51,9 @@ namespace System.Net.Http
                     {
                         bytesRead = await readTask.ConfigureAwait(false);
                     }
-                    catch (Exception exc) when (ShouldWrapInOperationCanceledException(exc, cancellationToken))
+                    catch (Exception exc) when (CancellationHelper.ShouldWrapInOperationCanceledException(exc, cancellationToken))
                     {
-                        throw CreateOperationCanceledException(exc, cancellationToken);
+                        throw CancellationHelper.CreateOperationCanceledException(exc, cancellationToken);
                     }
                     finally
                     {
@@ -64,7 +64,7 @@ namespace System.Net.Http
                 if (bytesRead <= 0)
                 {
                     // A cancellation request may have caused the EOF.
-                    cancellationToken.ThrowIfCancellationRequested();
+                    CancellationHelper.ThrowIfCancellationRequested(cancellationToken);
 
                     // Unexpected end of response stream.
                     throw new IOException(SR.net_http_invalid_response);
@@ -76,7 +76,7 @@ namespace System.Net.Http
                 if (_contentBytesRemaining == 0)
                 {
                     // End of response body
-                    _connection.ReturnConnectionToPool();
+                    _connection.CompleteResponse();
                     _connection = null;
                 }
 
@@ -115,9 +115,9 @@ namespace System.Net.Http
                 {
                     await copyTask.ConfigureAwait(false);
                 }
-                catch (Exception exc) when (ShouldWrapInOperationCanceledException(exc, cancellationToken))
+                catch (Exception exc) when (CancellationHelper.ShouldWrapInOperationCanceledException(exc, cancellationToken))
                 {
-                    throw CreateOperationCanceledException(exc, cancellationToken);
+                    throw CancellationHelper.CreateOperationCanceledException(exc, cancellationToken);
                 }
                 finally
                 {
@@ -130,8 +130,86 @@ namespace System.Net.Http
             private void Finish()
             {
                 _contentBytesRemaining = 0;
-                _connection.ReturnConnectionToPool();
+                _connection.CompleteResponse();
                 _connection = null;
+            }
+
+            // Based on ReadChunkFromConnectionBuffer; perhaps we should refactor into a common routine.
+            private ReadOnlyMemory<byte> ReadFromConnectionBuffer(int maxBytesToRead)
+            {
+                Debug.Assert(maxBytesToRead > 0);
+                Debug.Assert(_contentBytesRemaining > 0);
+
+                ReadOnlyMemory<byte> connectionBuffer = _connection.RemainingBuffer;
+                if (connectionBuffer.Length == 0)
+                {
+                    return default;
+                }
+
+                int bytesToConsume = Math.Min(maxBytesToRead, (int)Math.Min((ulong)connectionBuffer.Length, _contentBytesRemaining));
+                Debug.Assert(bytesToConsume > 0);
+
+                _connection.ConsumeFromRemainingBuffer(bytesToConsume);
+                _contentBytesRemaining -= (ulong)bytesToConsume;
+
+                return connectionBuffer.Slice(0, bytesToConsume);
+            }
+
+            public override bool NeedsDrain => (_connection != null);
+
+            public override async Task<bool> DrainAsync(int maxDrainBytes)
+            {
+                Debug.Assert(_connection != null);
+                Debug.Assert(_contentBytesRemaining > 0);
+
+                ReadFromConnectionBuffer(int.MaxValue);
+                if (_contentBytesRemaining == 0)
+                {
+                    Finish();
+                    return true;
+                }
+
+                if (_contentBytesRemaining > (ulong)maxDrainBytes)
+                {
+                    return false;
+                }
+
+                CancellationTokenSource cts = null;
+                CancellationTokenRegistration ctr = default;
+                TimeSpan drainTime = _connection._pool.Settings._maxResponseDrainTime;
+                if (drainTime != Timeout.InfiniteTimeSpan)
+                {
+                    cts = new CancellationTokenSource((int)drainTime.TotalMilliseconds);
+                    ctr = cts.Token.Register(s => ((HttpConnection)s).Dispose(), _connection);
+                }
+                try
+                {
+                    while (true)
+                    {
+                        await _connection.FillAsync().ConfigureAwait(false);
+                        ReadFromConnectionBuffer(int.MaxValue);
+                        if (_contentBytesRemaining == 0)
+                        {
+                            // Dispose of the registration and then check whether cancellation has been
+                            // requested. This is necessary to make determinstic a race condition between
+                            // cancellation being requested and unregistering from the token.  Otherwise,
+                            // it's possible cancellation could be requested just before we unregister and
+                            // we then return a connection to the pool that has been or will be disposed
+                            // (e.g. if a timer is used and has already queued its callback but the
+                            // callback hasn't yet run).
+                            ctr.Dispose();
+                            CancellationHelper.ThrowIfCancellationRequested(ctr.Token);
+
+                            Finish();
+                            return true;
+                        }
+                    }
+                }
+                finally
+                {
+                    ctr.Dispose();
+                    cts?.Dispose();
+                }
             }
         }
     }

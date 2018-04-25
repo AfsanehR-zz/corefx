@@ -23,7 +23,7 @@ namespace System
     /// or native memory, or to memory allocated on the stack. It is type- and memory-safe.
     /// </summary>
     [DebuggerTypeProxy(typeof(SpanDebugView<>))]
-    [DebuggerDisplay("{DebuggerDisplay,nq}")]
+    [DebuggerDisplay("{ToString(),raw}")]
     [NonVersionable]
     public readonly ref partial struct Span<T>
     {
@@ -155,6 +155,13 @@ namespace System
         }
 
         /// <summary>
+        /// Returns a reference to the 0th element of the Span. If the Span is empty, returns null reference.
+        /// It can be used for pinning and is required to support the use of span within a fixed statement.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public unsafe ref T GetPinnableReference() => ref (_length != 0) ? ref _pointer.Value : ref Unsafe.AsRef<T>(null);
+
+        /// <summary>
         /// Clears the contents of this span.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -162,11 +169,11 @@ namespace System
         {
             if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
             {
-                Span.ClearWithReferences(ref Unsafe.As<T, IntPtr>(ref _pointer.Value), (nuint)_length * (nuint)(Unsafe.SizeOf<T>() / sizeof(nuint)));
+                SpanHelpers.ClearWithReferences(ref Unsafe.As<T, IntPtr>(ref _pointer.Value), (nuint)_length * (nuint)(Unsafe.SizeOf<T>() / sizeof(nuint)));
             }
             else
             {
-                Span.ClearWithoutReferences(ref Unsafe.As<T, byte>(ref _pointer.Value), (nuint)_length * (nuint)Unsafe.SizeOf<T>());
+                SpanHelpers.ClearWithoutReferences(ref Unsafe.As<T, byte>(ref _pointer.Value), (nuint)_length * (nuint)Unsafe.SizeOf<T>());
             }
         }
 

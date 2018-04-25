@@ -2,11 +2,6 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
-
 namespace System.ServiceProcess.Tests
 {
     public class Program
@@ -35,6 +30,12 @@ namespace System.ServiceProcess.Tests
                             throw actualException;
                         }
                     }
+                }
+                else if (args[0].StartsWith("LogWritten"))
+                {
+                    testService = new TestService(args[0], throwException: null);
+                    testService.AutoLog = false;
+                    ServiceBase.Run(testService);
                 }
                 else
                 {

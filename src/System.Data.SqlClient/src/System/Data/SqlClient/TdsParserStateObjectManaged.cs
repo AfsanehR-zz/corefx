@@ -125,16 +125,12 @@ namespace System.Data.SqlClient.SNI
 
         internal override bool IsFailedHandle() => _sessionHandle.Status != TdsEnums.SNI_SUCCESS;
 
-        internal override object ReadSyncOverAsync(int timeoutRemaining, bool isMarsOn, out uint error)
+        internal override object ReadSyncOverAsync(int timeoutRemaining, out uint error)
         {
             SNIHandle handle = Handle;
             if (handle == null)
             {
                 throw ADP.ClosedConnectionError();
-            }
-            if (isMarsOn)
-            {
-                IncrementPendingCallbacks();
             }
             SNIPacket packet = null;
             error = SNIProxy.Singleton.ReadSyncOverAsync(handle, out packet, timeoutRemaining);
@@ -160,16 +156,19 @@ namespace System.Data.SqlClient.SNI
         internal override object ReadAsync(out uint error, ref object handle)
         {
             SNIPacket packet;
-            error = SNIProxy.Singleton.ReadAsync((SNIHandle)handle, out packet, isMars: _parser.MARSOn);
+            error = SNIProxy.Singleton.ReadAsync((SNIHandle)handle, out packet);
             return packet;
         }
 
         internal override object CreateAndSetAttentionPacket()
         {
-            SNIPacket attnPacket = new SNIPacket(Handle);
-            _sniAsyncAttnPacket = attnPacket;
-            SetPacketData(attnPacket, SQL.AttentionHeader, TdsEnums.HEADER_LEN);
-            return attnPacket;
+            if (_sniAsyncAttnPacket == null)
+            {
+                SNIPacket attnPacket = new SNIPacket();
+                SetPacketData(attnPacket, SQL.AttentionHeader, TdsEnums.HEADER_LEN);
+                _sniAsyncAttnPacket = attnPacket;
+            }
+            return _sniAsyncAttnPacket;
         }
 
         internal override uint WritePacket(object packet, bool sync)
@@ -268,7 +267,7 @@ namespace System.Data.SqlClient.SNI
                 else
                 {
                     // Failed to take a packet - create a new one
-                    packet = new SNIPacket(sniHandle);
+                    packet = new SNIPacket();
                 }
                 return packet;
             }

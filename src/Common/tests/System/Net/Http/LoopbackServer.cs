@@ -5,6 +5,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
@@ -73,7 +74,7 @@ namespace System.Net.Test.Common
             return CreateServerAsync(server => funcAsync(server, server.Uri), options);
         }
 
-        public static Task CreateClientAndServerAsync(Func<Uri, Task> clientFunc, Func<LoopbackServer, Task> serverFunc)
+        public static Task CreateClientAndServerAsync(Func<Uri, Task> clientFunc, Func<LoopbackServer, Task> serverFunc, Options options = null)
         {
             return CreateServerAsync(async server =>
             {
@@ -81,7 +82,7 @@ namespace System.Net.Test.Common
                 Task serverTask = serverFunc(server);
 
                 await new Task[] { clientTask, serverTask }.WhenAllOrAnyFailed();
-            });
+            }, options);
         }
 
         public async Task AcceptConnectionAsync(Func<Connection, Task> funcAsync)
@@ -140,10 +141,34 @@ namespace System.Net.Test.Common
             // We'll close the connection after reading the request header and sending the response.
             await AcceptConnectionAsync(async connection =>
             {
-                lines = await connection.ReadRequestHeaderAndSendResponseAsync(statusCode, additionalHeaders, content);
+                lines = await connection.ReadRequestHeaderAndSendResponseAsync(statusCode, additionalHeaders + "Connection: close\r\n", content);
             });
 
             return lines;
+        }
+
+        public static string GetRequestHeaderValue(List<string> headers, string name)
+        {
+            var sep = new char[] { ':' };
+            foreach (string line in headers)
+            {
+                string[] tokens = line.Split(sep , 2);
+                if (name.Equals(tokens[0], StringComparison.InvariantCultureIgnoreCase))
+                {
+                    return tokens[1].Trim();
+                }
+            }
+            return null;
+        }
+
+        public static string GetRequestMethod(List<string> headers)
+        {
+
+            if (headers != null && headers.Count > 1)
+            {
+                return headers[0].Split()[1].Trim();
+            }
+            return null;
         }
 
         // Stolen from HttpStatusDescription code in the product code
@@ -253,13 +278,38 @@ namespace System.Net.Test.Common
             return null;
         }
 
-        public static string GetHttpResponse(HttpStatusCode statusCode = HttpStatusCode.OK, string additionalHeaders = null, string content = null) =>
+        public static string GetHttpResponse(HttpStatusCode statusCode = HttpStatusCode.OK, string additionalHeaders = null, string content = null, bool connectionClose = false) =>
             $"HTTP/1.1 {(int)statusCode} {GetStatusDescription(statusCode)}\r\n" +
+            (connectionClose ? "Connection: close\r\n" : "") +
             $"Date: {DateTimeOffset.UtcNow:R}\r\n" +
             $"Content-Length: {(content == null ? 0 : content.Length)}\r\n" +
             additionalHeaders +
             "\r\n" +
             content;
+
+        public static string GetSingleChunkHttpResponse(HttpStatusCode statusCode = HttpStatusCode.OK, string additionalHeaders = null, string content = null, bool connectionClose = false) =>
+            $"HTTP/1.1 {(int)statusCode} {GetStatusDescription(statusCode)}\r\n" +
+            (connectionClose ? "Connection: close\r\n" : "") +
+            $"Date: {DateTimeOffset.UtcNow:R}\r\n" +
+            "Transfer-Encoding: chunked\r\n" +
+            additionalHeaders +
+            "\r\n" +
+            (string.IsNullOrEmpty(content) ? "" :
+                $"{content.Length:X}\r\n" +
+                $"{content}\r\n") +
+            $"0\r\n" +
+            $"\r\n";
+
+        public static string GetBytePerChunkHttpResponse(HttpStatusCode statusCode = HttpStatusCode.OK, string additionalHeaders = null, string content = null, bool connectionClose = false) =>
+            $"HTTP/1.1 {(int)statusCode} {GetStatusDescription(statusCode)}\r\n" +
+            (connectionClose ? "Connection: close\r\n" : "") +
+            $"Date: {DateTimeOffset.UtcNow:R}\r\n" +
+            "Transfer-Encoding: chunked\r\n" +
+            additionalHeaders +
+            "\r\n" +
+            (string.IsNullOrEmpty(content) ? "" : string.Concat(content.Select(c => $"1\r\n{c}\r\n"))) + 
+            $"0\r\n" +
+            $"\r\n";
 
         public class Options
         {
@@ -272,6 +322,7 @@ namespace System.Net.Test.Common
             public string Username { get; set; }
             public string Domain { get; set; }
             public string Password { get; set; }
+            public bool IsProxy  { get; set; } = false;
         }
 
         public sealed class Connection : IDisposable
@@ -320,6 +371,11 @@ namespace System.Net.Test.Common
                 while (!string.IsNullOrEmpty(line = await _reader.ReadLineAsync().ConfigureAwait(false)))
                 {
                     lines.Add(line);
+                }
+
+                if (line == null)
+                {
+                    throw new Exception("Unexpected EOF trying to read request header");
                 }
 
                 return lines;

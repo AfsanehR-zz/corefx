@@ -16,7 +16,7 @@ namespace System
     /// or native memory, or to memory allocated on the stack. It is type- and memory-safe.
     /// </summary>
     [DebuggerTypeProxy(typeof(SpanDebugView<>))]
-    [DebuggerDisplay("{DebuggerDisplay,nq}")]
+    [DebuggerDisplay("{ToString(),raw}")]
     public readonly ref partial struct ReadOnlySpan<T>
     {
         /// <summary>
@@ -108,9 +108,6 @@ namespace System
             _byteOffset = byteOffset;
         }
 
-        //Debugger Display = System.ReadOnlySpan<T>[length]
-        private string DebuggerDisplay => string.Format("System.ReadOnlySpan<{0}>[{1}]", typeof(T).Name, Length);
-
         /// <summary>
         /// Returns the specified element of the read-only span.
         /// </summary>
@@ -132,6 +129,24 @@ namespace System
                 else
                     return ref Unsafe.Add<T>(ref Unsafe.AddByteOffset<T>(ref _pinnable.Data, _byteOffset), index);
             }
+        }
+
+        /// <summary>
+        /// Returns a reference to the 0th element of the Span. If the Span is empty, returns null reference.
+        /// It can be used for pinning and is required to support the use of span within a fixed statement.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public unsafe ref readonly T GetPinnableReference()
+        {
+            if (_length != 0)
+            {
+                if (_pinnable == null)
+                {
+                    return ref Unsafe.AsRef<T>(_byteOffset.ToPointer());
+                }
+                return ref Unsafe.AddByteOffset<T>(ref _pinnable.Data, _byteOffset);
+            }
+            return ref Unsafe.AsRef<T>(null);
         }
 
         /// <summary>
@@ -193,6 +208,17 @@ namespace System
         {
             if (typeof(T) == typeof(char))
             {
+                // If this wraps a string and represents the full length of the string, just return the wrapped string.
+                if (_byteOffset == MemoryExtensions.StringAdjustment)
+                {
+                    object obj = Unsafe.As<object>(_pinnable); // minimize chances the compilers will optimize away the 'is' check
+                    if (obj is string str && _length == str.Length)
+                    {
+                        return str;
+                    }
+                }
+
+                // Otherwise, copy the data to a new string.
                 unsafe
                 {
                     fixed (char* src = &Unsafe.As<T, char>(ref DangerousGetPinnableReference()))

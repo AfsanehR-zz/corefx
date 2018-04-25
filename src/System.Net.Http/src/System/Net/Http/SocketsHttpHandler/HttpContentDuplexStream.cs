@@ -12,6 +12,7 @@ namespace System.Net.Http
     {
         public HttpContentDuplexStream(HttpConnection connection) : base(connection)
         {
+            if (NetEventSource.IsEnabled) NetEventSource.Info(this);
         }
 
         public sealed override bool CanRead => true;
@@ -40,7 +41,7 @@ namespace System.Net.Http
         public sealed override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
         {
             ValidateBufferArgs(buffer, offset, count);
-            return WriteAsync(new ReadOnlyMemory<byte>(buffer, offset, count), cancellationToken);
+            return WriteAsync(new ReadOnlyMemory<byte>(buffer, offset, count), cancellationToken).AsTask();
         }
 
         public sealed override void CopyTo(Stream destination, int bufferSize) =>

@@ -67,8 +67,8 @@ namespace System.IO.Tests
         [Fact]
         public void FileSystemWatcher_ctor()
         {
-            string path = String.Empty;
-            string pattern = "*.*";
+            string path = string.Empty;
+            string pattern = PlatformDetection.IsFullFramework ? "*.*" : "*";
             using (FileSystemWatcher watcher = new FileSystemWatcher())
                 ValidateDefaults(watcher, path, pattern);
         }
@@ -77,7 +77,7 @@ namespace System.IO.Tests
         public void FileSystemWatcher_ctor_path()
         {
             string path = @".";
-            string pattern = "*.*";
+            string pattern = PlatformDetection.IsFullFramework ? "*.*" : "*";
             using (FileSystemWatcher watcher = new FileSystemWatcher(path))
                 ValidateDefaults(watcher, path, pattern);
         }
@@ -216,14 +216,14 @@ namespace System.IO.Tests
         {
             FileSystemWatcher watcher = new FileSystemWatcher();
 
-            Assert.Equal("*.*", watcher.Filter);
+            Assert.Equal(PlatformDetection.IsFullFramework ? "*.*" : "*", watcher.Filter);
 
-            // Null and empty should be mapped to "*.*"
+            // Null and empty should be mapped to "*"
             watcher.Filter = null;
-            Assert.Equal("*.*", watcher.Filter);
+            Assert.Equal(PlatformDetection.IsFullFramework ? "*.*" : "*", watcher.Filter);
 
-            watcher.Filter = String.Empty;
-            Assert.Equal("*.*", watcher.Filter);
+            watcher.Filter = string.Empty;
+            Assert.Equal(PlatformDetection.IsFullFramework ? "*.*" : "*", watcher.Filter);
 
             watcher.Filter = " ";
             Assert.Equal(" ", watcher.Filter);
@@ -241,7 +241,7 @@ namespace System.IO.Tests
                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 // expect no change for OrdinalIgnoreCase-equal strings
-                // it's unclear why desktop does this but preserve it for compat        
+                // it's unclear why desktop does this but preserve it for compat
                 watcher.Filter = "ABC.DLL";
                 Assert.Equal("abc.dll", watcher.Filter);
             }
@@ -475,8 +475,8 @@ namespace System.IO.Tests
 
                 fsw.Renamed += (o, e) =>
                 {
-                    Assert.Equal(e.OldFullPath, file.Path);
-                    Assert.Equal(e.FullPath, newPath);
+                    Assert.Equal(file.Path, e.OldFullPath);
+                    Assert.Equal(newPath, e.FullPath);
                 };
 
                 fsw.EnableRaisingEvents = true;
@@ -485,9 +485,9 @@ namespace System.IO.Tests
             }
         }
 
-        [Fact]                        
+        [Fact]
         public void FileSystemWatcher_Path()
-        {            
+        {
             FileSystemWatcher watcher = new FileSystemWatcher();
             Assert.Equal(String.Empty, watcher.Path);
 

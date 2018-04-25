@@ -16,7 +16,7 @@ namespace System
     /// or native memory, or to memory allocated on the stack. It is type- and memory-safe.
     /// </summary>
     [DebuggerTypeProxy(typeof(SpanDebugView<>))]
-    [DebuggerDisplay("{DebuggerDisplay,nq}")]
+    [DebuggerDisplay("{ToString(),raw}")]
     public readonly ref partial struct Span<T>
     {
         /// <summary>
@@ -39,6 +39,28 @@ namespace System
             _length = array.Length;
             _pinnable = Unsafe.As<Pinnable<T>>(array);
             _byteOffset = SpanHelpers.PerTypeValues<T>.ArrayAdjustment;
+        }
+
+        // This is a constructor that takes an array and start but not length. The reason we expose it as a static method as a constructor
+        // is to mirror the actual api shape. This overload of the constructor was removed from the api surface area due to possible
+        // confusion with other overloads that take an int parameter that don't represent a start index.
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static Span<T> Create(T[] array, int start)
+        {
+            if (array == null)
+            {
+                if (start != 0)
+                    ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.start);
+                return default;
+            }
+            if (default(T) == null && array.GetType() != typeof(T[]))
+                ThrowHelper.ThrowArrayTypeMismatchException();
+            if ((uint)start > (uint)array.Length)
+                ThrowHelper.ThrowArgumentOutOfRangeException(ExceptionArgument.start);
+
+            IntPtr byteOffset = SpanHelpers.PerTypeValues<T>.ArrayAdjustment.Add<T>(start);
+            int length = array.Length - start;
+            return new Span<T>(pinnable: Unsafe.As<Pinnable<T>>(array), byteOffset: byteOffset, length: length);
         }
 
         /// <summary>
@@ -112,9 +134,6 @@ namespace System
             _byteOffset = byteOffset;
         }
 
-        //Debugger Display = System.Span<T>[length]
-        private string DebuggerDisplay => string.Format("System.Span<{0}>[{1}]", typeof(T).Name, _length);
-
         /// <summary>
         /// Returns a reference to specified element of the Span.
         /// </summary>
@@ -136,6 +155,24 @@ namespace System
                 else
                     return ref Unsafe.Add<T>(ref Unsafe.AddByteOffset<T>(ref _pinnable.Data, _byteOffset), index);
             }
+        }
+
+        /// <summary>
+        /// Returns a reference to the 0th element of the Span. If the Span is empty, returns null reference.
+        /// It can be used for pinning and is required to support the use of span within a fixed statement.
+        /// </summary>
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public unsafe ref T GetPinnableReference()
+        {
+            if (_length != 0)
+            {
+                if (_pinnable == null)
+                {
+                    return ref Unsafe.AsRef<T>(_byteOffset.ToPointer());
+                }
+                return ref Unsafe.AddByteOffset<T>(ref _pinnable.Data, _byteOffset);
+            }
+            return ref Unsafe.AsRef<T>(null);
         }
 
         /// <summary>

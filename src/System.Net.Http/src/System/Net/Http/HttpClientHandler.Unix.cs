@@ -17,6 +17,7 @@ namespace System.Net.Http
         private readonly CurlHandler _curlHandler;
         private readonly SocketsHttpHandler _socketsHttpHandler;
         private readonly DiagnosticsHandler _diagnosticsHandler;
+        private ClientCertificateOption _clientCertificateOptions;
 
         public HttpClientHandler() : this(UseSocketsHttpHandler) { }
 
@@ -26,6 +27,7 @@ namespace System.Net.Http
             {
                 _socketsHttpHandler = new SocketsHttpHandler();
                 _diagnosticsHandler = new DiagnosticsHandler(_socketsHttpHandler);
+                ClientCertificateOptions = ClientCertificateOption.Manual;
             }
             else
             {
@@ -91,9 +93,7 @@ namespace System.Net.Http
                 }
                 else
                 {
-                    return _socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback != null ?
-                        ClientCertificateOption.Automatic :
-                        ClientCertificateOption.Manual;
+                    return _clientCertificateOptions;
                 }
             }
             set
@@ -108,11 +108,13 @@ namespace System.Net.Http
                     {
                         case ClientCertificateOption.Manual:
                             ThrowForModifiedManagedSslOptionsIfStarted();
-                            _socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = null;
+                            _clientCertificateOptions = value;
+                            _socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, targetHost, localCertificates, remoteCertificate, acceptableIssuers) => CertificateHelper.GetEligibleClientCertificate(ClientCertificates);
                             break;
 
                         case ClientCertificateOption.Automatic:
                             ThrowForModifiedManagedSslOptionsIfStarted();
+                            _clientCertificateOptions = value;
                             _socketsHttpHandler.SslOptions.LocalCertificateSelectionCallback = (sender, targetHost, localCertificates, remoteCertificate, acceptableIssuers) => CertificateHelper.GetEligibleClientCertificate();
                             break;
 
@@ -196,7 +198,6 @@ namespace System.Net.Http
                 }
                 else
                 {
-                    SecurityProtocol.ThrowOnNotAllowed(value, allowNone: true);
                     ThrowForModifiedManagedSslOptionsIfStarted();
                     _socketsHttpHandler.SslOptions.EnabledSslProtocols = value;
                 }
@@ -285,12 +286,28 @@ namespace System.Net.Http
 
         public bool UseDefaultCredentials
         {
-            get => _curlHandler != null ? _curlHandler.UseDefaultCredentials : false;
+            // Either read variable from curlHandler or compare .Credentials as socketsHttpHandler does not have separate prop.
+            get => _curlHandler != null ? _curlHandler.UseDefaultCredentials : _socketsHttpHandler.Credentials == CredentialCache.DefaultCredentials;
             set
             {
                 if (_curlHandler != null)
                 {
                     _curlHandler.UseDefaultCredentials = value;
+                }
+                else
+                {
+                    if (value)
+                    {
+                        _socketsHttpHandler.Credentials = CredentialCache.DefaultCredentials;
+                    }
+                    else
+                    {
+                        if (_socketsHttpHandler.Credentials == CredentialCache.DefaultCredentials)
+                        {
+                            // Only clear out the Credentials property if it was a DefaultCredentials.
+                            _socketsHttpHandler.Credentials = null;
+                        }
+                    }
                 }
             }
         }

@@ -15,8 +15,6 @@ namespace System.Net.Http
 {
     internal partial class AuthenticationHelper
     {
-        public const string Digest = "Digest";
-
         // Define digest constants
         private const string Qop = "qop";
         private const string Auth = "auth";
@@ -42,32 +40,6 @@ namespace System.Net.Http
         // 48='0', 65='A', 97='a'
         private static int[] s_alphaNumChooser = new int[] { 48, 65, 97 };
 
-        public async static Task<bool> TrySetDigestAuthToken(HttpRequestMessage request, ICredentials credentials, DigestResponse digestResponse, string authHeader)
-        {
-            NetworkCredential credential = credentials.GetCredential(request.RequestUri, Digest);
-            if (credential == null)
-            {
-                return false;
-            }
-
-            string parameter = await GetDigestTokenForCredential(credential, request, digestResponse).ConfigureAwait(false);
-
-            // Any errors in obtaining parameter return false
-            if (string.IsNullOrEmpty(parameter))
-                return false;
-
-            if (authHeader == HttpKnownHeaderNames.Authorization)
-            {
-                request.Headers.Authorization = new AuthenticationHeaderValue(Digest, parameter);
-            }
-            else if (authHeader == HttpKnownHeaderNames.ProxyAuthorization)
-            {
-                request.Headers.ProxyAuthorization = new AuthenticationHeaderValue(Digest, parameter);
-            }
-
-            return true;
-        }
-
         public static async Task<string> GetDigestTokenForCredential(NetworkCredential credential, HttpRequestMessage request, DigestResponse digestResponse)
         {
             StringBuilder sb = StringBuilderCache.Acquire();
@@ -78,7 +50,10 @@ namespace System.Net.Http
             if (digestResponse.Parameters.TryGetValue(Algorithm, out algorithm))
             {
                 if (algorithm != Sha256 && algorithm != Md5 && algorithm != Sha256Sess && algorithm != MD5Sess)
+                {
+                    if (NetEventSource.IsEnabled) NetEventSource.Error(digestResponse, "Algorithm not supported: {algorithm}");
                     return null;
+                }
             }
             else
             {
@@ -89,6 +64,7 @@ namespace System.Net.Http
             string nonce;
             if (!digestResponse.Parameters.TryGetValue(Nonce, out nonce))
             {
+                if (NetEventSource.IsEnabled) NetEventSource.Error(digestResponse, "Nonce missing");
                 return null;
             }
 
@@ -99,6 +75,7 @@ namespace System.Net.Http
             string realm;
             if (!digestResponse.Parameters.TryGetValue(Realm, out realm))
             {
+                if (NetEventSource.IsEnabled) NetEventSource.Error(digestResponse, "Realm missing");
                 return null;
             }
 
