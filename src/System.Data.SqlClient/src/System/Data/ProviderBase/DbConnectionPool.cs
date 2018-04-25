@@ -671,6 +671,79 @@ namespace System.Data.ProviderBase
                 _cleanupWait,
                 _cleanupWait);
 
+        private static readonly string[] AzureSqlServerEndpoints = {SR.GetString(SR.AZURESQL_GenericEndpoint),
+                                                                      SR.GetString(SR.AZURESQL_GermanEndpoint),
+                                                                      SR.GetString(SR.AZURESQL_UsGovEndpoint),
+                                                                      SR.GetString(SR.AZURESQL_ChinaEndpoint) };
+          private static bool IsAzureSqlServerEndpoint(string dataSource)
+          {
+              // remove server port
+             var i = dataSource.LastIndexOf(',');
+              if (i >= 0)
+              {
+                  dataSource = dataSource.Substring(0, i);
+              }
+  
+              // check for the instance name
+              i = dataSource.LastIndexOf('\\');
+              if (i >= 0)
+              {
+                  dataSource = dataSource.Substring(0, i);
+              }
+  
+              // trim redundant whitespaces
+              dataSource = dataSource.Trim();
+  
+              // check if servername end with any azure endpoints
+              for (i = 0; i<AzureSqlServerEndpoints.Length; i++) 
+             {
+                  if (dataSource.EndsWith(AzureSqlServerEndpoints[i], StringComparison.OrdinalIgnoreCase))
+                  {
+                      return true;
+                  }  
+              }
+              return false;
+          }
+  
+          private static bool IsBlockingPeriodEnabled(DbConnection connection)
+          {
+              var policy = DbConnectionStringDefaults.PoolBlockingPeriod;
+              var sqlConnection = connection as System.Data.SqlClient.SqlConnection;
+              if (sqlConnection != null)
+              {
+                  policy = sqlConnection.PoolBlockingPeriod;
+              }
+  
+              switch (policy)
+              {
+                  case System.Data.SqlClient.PoolBlockingPeriod.Auto:
+                  {
+                      if (IsAzureSqlServerEndpoint(connection.DataSource))
+                     {
+                          return false; // in Azure it will be Disabled
+                      }
+                      else
+                      {
+                          return true; // in Non Azure, it will be Enabled
+                      }
+                  }
+                  case System.Data.SqlClient.PoolBlockingPeriod.AlwaysBlock:
+                  {
+                      return true; //Enabled
+                  }
+                  case System.Data.SqlClient.PoolBlockingPeriod.NeverBlock:
+                  {
+                      return false; //Disabled
+                  }
+                  default:
+                  {
+                      //we should never get into this path.
+                      Debug.Fail("Unknown PoolBlockingPeriod. Please specify explicit results in above switch case statement.");
+                      return true;
+                  }
+              }
+          }
+
         private DbConnectionInternal CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
         {
             DbConnectionInternal newObj = null;
@@ -719,6 +792,13 @@ namespace System.Data.ProviderBase
             catch (Exception e)
             {
                 if (!ADP.IsCatchableExceptionType(e))
+                {
+                    throw;
+                }
+
+               /// ADP.TraceExceptionForCapture(e);
+
+                if (!IsBlockingPeriodEnabled(owningObject))
                 {
                     throw;
                 }

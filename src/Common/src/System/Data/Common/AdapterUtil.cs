@@ -35,6 +35,12 @@ namespace System.Data.Common
             TraceException("<comm.ADP.TraceException|ERR|THROW> '{0}'", e);
         }
 
+        static internal void TraceExceptionForCapture(Exception e)
+        {
+            Debug.Assert(ADP.IsCatchableExceptionType(e), "Invalid exception type, should have been re-thrown!");
+            TraceException("<comm.ADP.TraceException|ERR|CATCH> '%ls'\n", e);
+        }
+
         internal static void TraceExceptionWithoutRethrow(Exception e)
         {
             Debug.Assert(ADP.IsCatchableExceptionType(e), "Invalid exception type, should have been re-thrown!");
