@@ -504,17 +504,15 @@
       <LogicalName>System.Data.SqlClient.SqlMetaData.xml</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
-<<<<<<< HEAD
   <ItemGroup>
     <Compile Include="System\Data\SqlClient\PoolBlockingPeriod.cs" />
-=======
+  </ItemGroup>
   <ItemGroup  Condition="'$(TargetGroup)' == 'netcoreapp'">
     <Reference Include="System.Runtime.Extensions" />
     <Reference Include="System.Data.Common" />
     <Reference Include="System.ComponentModel.Primitives" />
     <Reference Include="System.Xml.ReaderWriter" />
     <Reference Include="System.Runtime.InteropServices" />
->>>>>>> 20a52e06138dcb74c0dd270f39e14afc76222a27
   </ItemGroup>
   <Import Project="$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), dir.targets))\dir.targets" />
   <Import Project=".\GenerateThisAssemblyCs.targets" Condition="'$(IsPartialFacadeAssembly)' != 'true'" />

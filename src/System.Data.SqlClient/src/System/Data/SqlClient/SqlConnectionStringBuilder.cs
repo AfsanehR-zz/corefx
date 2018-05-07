@@ -269,7 +269,7 @@ namespace System.Data.SqlClient
                         case Keywords.PacketSize: PacketSize = ConvertToInt32(value); break;
 
                         case Keywords.IntegratedSecurity: IntegratedSecurity = ConvertToIntegratedSecurity(value); break;
-
+                        case Keywords.PoolBlockingPeriod: PoolBlockingPeriod = ConvertToPoolBlockingPeriod(keyword, value); break;
                         case Keywords.Encrypt: Encrypt = ConvertToBoolean(value); break;
                         case Keywords.TrustServerCertificate: TrustServerCertificate = ConvertToBoolean(value); break;
                         case Keywords.Enlist: Enlist = ConvertToBoolean(value); break;
@@ -798,8 +798,11 @@ namespace System.Data.SqlClient
         {
             return DbConnectionStringBuilderUtil.ConvertToApplicationIntent(keyword, value);
         }
-
-        private object GetAt(Keywords index)
+        private static PoolBlockingPeriod ConvertToPoolBlockingPeriod(string keyword, object value)
+        {
+             return DbConnectionStringBuilderUtil.ConvertToPoolBlockingPeriod(keyword, value);
+        }
+    private object GetAt(Keywords index)
         {
             switch (index)
             {
