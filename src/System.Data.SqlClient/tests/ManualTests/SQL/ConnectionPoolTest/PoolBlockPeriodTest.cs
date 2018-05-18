@@ -28,6 +28,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData(CDbAsyncSettings.UseSyncOverAsync)]
         public void BlockingIntervalSyncTest(CDbAsyncSettings setting)
         {
+            SqlConnection.ClearAllPools();
             string connString = CreateConnectionString(_sampleNonAzureEndpoint, null);
             int errorTimeInSecs = GetConnectionOpenTimeInSeconds(connString, setting);
 
@@ -40,7 +41,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
 
                 Assert.True(CompareWithMargin(timeInSecs, blockingPeriodInSeconds, comparisonMargin),
                     $"#{counter} blocking Period must be {blockingPeriodInSeconds} seconds");
-
+                
                 counter++;
                 blockingPeriodInSeconds = blockingPeriodInSeconds * 2;
             }
@@ -69,6 +70,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData("Azure with Never Policy must Disable Blocking", new object[] { "nonexistance.database.windows.net", PoolBlockingPeriod.NeverBlock })]
         public void TestAzureBlockingPeriod(string description, object[] Params)
         {
+            SqlConnection.ClearAllPools();
             string serverName = Params[0] as string;
             PoolBlockingPeriod? policy = null;
             if (Params.Length > 1)
@@ -109,6 +111,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData("NonAzure (which contains azure endpoint - nonexistance.database.WINDOWS.net.else) with Default Policy must Enable Blocking", new object[] { "nonexistance.database.windows.net.else" })]
         public void TestNonAzureBlockingPeriod(string description, object[] Params)
         {
+            SqlConnection.ClearAllPools();
             string serverName = Params[0] as string;
             PoolBlockingPeriod? policy = null;
 
@@ -135,7 +138,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
                 case PoolBlockingPeriod.AlwaysBlock:
                     {
                         //fast failed / Enabled Blocking
-                        Assert.True(timeInSecs == 0, $"Azure Endpoint with Default/Auto/Always must Enable blocking. (Fast Failed)");
+                        Assert.True(errorTimeInSecs >= timeInSecs, $"Azure Endpoint with Default/Auto/Always must Enable blocking. (Fast Failed)");
                         break;
                     }
             }
@@ -147,6 +150,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData("Test policy with Auto (Pascalcase)", new object[] { "Auto" })]
         public void TestSetPolicyWithAutoVariations(string description, object[] Params)
         {
+            SqlConnection.ClearAllPools();
             string policyString = Params[0] as string;
 
             string connString = CreateConnectionString(_sampleAzureEndpoint, null) + $";{_policyKeyword}={policyString}";
@@ -163,6 +167,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData("Test policy with Always (Pascalcase)", new object[] { "AlwaysBlock" })]
         public void TestSetPolicyWithAlwaysVariations(string description, object[] Params)
         {
+            SqlConnection.ClearAllPools();
             string policyString = Params[0] as string;
 
             string connString = CreateConnectionString(_sampleAzureEndpoint, null) + $";{_policyKeyword}={policyString}";
@@ -179,6 +184,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData("Test policy with Never (Pascalcase)", new object[] { "NeverBlock" })]
         public void TestSetPolicyWithNeverVariations(string description, object[] Params)
         {
+            SqlConnection.ClearAllPools();
             string policyString = Params[0] as string;
 
             string connString = CreateConnectionString(_sampleNonAzureEndpoint, null) + $";{_policyKeyword}={policyString}";
@@ -195,6 +201,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
         [InlineData("Test connection Id with policy NeverBlock", new object[] { PoolBlockingPeriod.NeverBlock })]
         public void PoolBlockingPeriodWithConnectionIdTest(string description, object[] Params)
         {
+            SqlConnection.ClearAllPools();
             PoolBlockingPeriod policy = (PoolBlockingPeriod)Params[0];
             Guid previousConnectionId = Guid.Empty;
             string connStr = DataTestUtility.TcpConnStr + $";{_policyKeyword}={policy}";
