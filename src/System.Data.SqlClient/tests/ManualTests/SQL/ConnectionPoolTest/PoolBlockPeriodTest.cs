@@ -88,15 +88,15 @@ namespace System.Data.SqlClient.ManualTesting.Tests
                 case PoolBlockingPeriod.NeverBlock:
                 case PoolBlockingPeriod.Auto:
                     {
-                        //Disable Blocking
-                        Assert.True(timeInSecs > 0, $"Azure Endpoint with Default/Auto/Never Policy must Disable blocking.");
+                        //Azure Endpoint with Default/Auto/Never Policy must Disable blocking.
+                        Assert.InRange(timeInSecs, 1, int.MaxValue); 
                         break;
                     }
 
                 case PoolBlockingPeriod.AlwaysBlock:
                     {
-                        //fast failed / Enabled Blocking
-                        Assert.True(timeInSecs == 0, $"Azure Endpoint with Always Policy must Enable blocking. (Fast Failed)");
+                        //Azure Endpoint with Always Policy must Enable blocking. (Fast Failed)
+                        Assert.Equal(0, timeInSecs);
                         break;
                     }
             }
@@ -128,8 +128,8 @@ namespace System.Data.SqlClient.ManualTesting.Tests
             {
                 case PoolBlockingPeriod.NeverBlock:
                     {
-                        //Disable Blocking
-                        Assert.True(timeInSecs > 0, $"Azure Endpoint with Never Policy must Disabled blocking.");
+                        //Azure Endpoint with Never Policy must Disable blocking.
+                        Assert.InRange(timeInSecs, 1, int.MaxValue);
                         break;
                     }
 
@@ -137,8 +137,9 @@ namespace System.Data.SqlClient.ManualTesting.Tests
                 case PoolBlockingPeriod.Auto:
                 case PoolBlockingPeriod.AlwaysBlock:
                     {
-                        //fast failed / Enabled Blocking
-                        Assert.True(errorTimeInSecs >= timeInSecs, $"Azure Endpoint with Default/Auto/Always must Enable blocking. (Fast Failed)");
+                        //Azure Endpoint with Default/Auto/Always must Enable blocking. (Fast Failed)
+                        Assert.InRange(timeInSecs, 0, errorTimeInSecs);
+                        //Assert.True(errorTimeInSecs >= timeInSecs, $"Azure Endpoint with Default/Auto/Always must Enable blocking. (Fast Failed)");
                         break;
                     }
             }
@@ -158,7 +159,7 @@ namespace System.Data.SqlClient.ManualTesting.Tests
             int timeInSecs = GetConnectionOpenTimeInSeconds(connString, CDbAsyncSettings.UseSyncOverAsync);
 
             //Disable Blocking
-            Assert.True(timeInSecs > 0, $"Azure Endpoint with Auto Policy '{policyString}'must Disabled blocking.");
+            Assert.InRange(timeInSecs, 1, int.MaxValue);
         }
 
         [Theory]
