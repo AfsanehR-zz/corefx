@@ -97,7 +97,7 @@ namespace System.Data.Common
             {
                 throw ADP.ConvertFailed(value.GetType(), typeof(String), e);
             }
-        }        
+        }
 
         private const string ApplicationIntentReadWriteString = "ReadWrite";
         private const string ApplicationIntentReadOnlyString = "ReadOnly";

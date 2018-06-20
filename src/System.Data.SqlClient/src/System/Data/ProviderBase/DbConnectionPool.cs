@@ -667,7 +667,7 @@ namespace System.Data.ProviderBase
                 new TimerCallback(CleanupCallback),
                 null,
                 _cleanupWait,
-                _cleanupWait);       
+                _cleanupWait);
 
         private DbConnectionInternal CreateObject(DbConnection owningObject, DbConnectionOptions userOptions, DbConnectionInternal oldConnection)
         {
